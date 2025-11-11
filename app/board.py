@@ -30,6 +30,7 @@ class Board:
         self.player_colors = config.get_player_colors()
         self.player_symbols = rules.get_player_symbols()
         self.player_start_positions = config.get_player_start_positions()
+        self.current_player_positions = {}  # (row, col) -> player name
         self.rules = rules
         
         # Initialize board with empty spaces
@@ -49,24 +50,16 @@ class Board:
                 for j, cell in enumerate(row):
                     if pos_x + i < self.board_length and pos_y + j < self.board_width:
                         self.board[pos_x + i][pos_y + j] = cell
-        self.place_players_on_board()
+
+
         
     def apply_color_to_text(self, text, color):
         '''Apply colorama color to text with auto-reset.'''
         return f"{color}{text}{Style.RESET_ALL}"
-        
-    def place_players_on_board(self):
-        '''Places player tokens at their starting positions on the board.'''
-        # Track actual player positions
-        self.current_player_positions = {}
-        
-        for player, position in self.player_start_positions.items():
-            x, y = position
-            if 0 <= x < self.board_length and 0 <= y < self.board_width:
-                symbol = self.player_symbols[player]
-                self.board[x][y] = symbol
-                # Store the actual position for this player
-                self.current_player_positions[(x, y)] = player
+
+    def move_player_on_board(self):
+        "''Moves a player on the board.'''"
+
         
     def get_room_layouts(self):
         '''Returns 2D layouts for each room with halls (.), walls (#), doors (d), room spaces (R).'''
@@ -174,22 +167,8 @@ class Board:
                 ]
             }
         }
-        
-    def display_board(self):
-        '''Displays the board in the console with colored player tokens.'''
-        for row_idx, row in enumerate(self.board):
-            colored_row = []
-            for col_idx, cell in enumerate(row):
-                if (row_idx, col_idx) in self.current_player_positions:
-                    player = self.current_player_positions[(row_idx, col_idx)]
-                    color = self.player_colors[player]
-                    colored_cell = self.apply_color_to_text(cell, color)
-                    colored_row.append(colored_cell)
-                else:
-                    colored_row.append(cell)
-            
-            print(' '.join(colored_row))
-    
+
+
     def display_legend(self):
         '''Displays a legend showing player colors and symbols.'''
         print("\n=== PLAYER LEGEND ===")
@@ -208,7 +187,149 @@ class Board:
             "Conservatory": "Lounge",
             "Lounge": "Conservatory"
         }
+    
 
+    def display_board(self, players):
+        '''Displays the board with player tokens only for players in hallways.
+        Players in rooms are not shown on the board.
+        
+        Args:
+            players: List of Player objects
+        '''
+        # Build position map only for players NOT in rooms
+        position_to_player = {}
+        for player in players:
+            if player.current_room is None:  # Only show players in hallways
+                pos = player.current_position
+                position_to_player[pos] = player
+        
+        # Display the board
+        for row_idx, row in enumerate(self.board):
+            colored_row = []
+            for col_idx, cell in enumerate(row):
+                if (row_idx, col_idx) in position_to_player:
+                    player = position_to_player[(row_idx, col_idx)]
+                    colored_cell = self.apply_color_to_text(player.symbol, player.color)
+                    colored_row.append(colored_cell)
+                else:
+                    colored_row.append(cell)
+            
+            print(' '.join(colored_row))
+        
+        # Display players in rooms at the bottom
+        self.display_players_in_rooms(players)
+    
+    def display_players_in_rooms(self, players):
+        '''Displays which players are currently in rooms.
+        
+        Args:
+            players: List of Player objects
+        '''
+        players_in_rooms = [p for p in players if p.current_room is not None]
+        
+        if players_in_rooms:
+            print("\n" + "=" * 50)
+            print("PLAYERS IN ROOMS:")
+            print("=" * 50)
+            
+            # Group players by room
+            rooms_dict = {}
+            for player in players_in_rooms:
+                room = player.current_room
+                if room not in rooms_dict:
+                    rooms_dict[room] = []
+                rooms_dict[room].append(player)
+            
+            # Display each room and its occupants
+            for room_name in sorted(rooms_dict.keys()):
+                print(f"\n{room_name}:")
+                for player in rooms_dict[room_name]:
+                    colored_symbol = self.apply_color_to_text(player.symbol, player.color)
+                    print(f"  {colored_symbol} - {player.get_colored_name()}")
+            
+            print("=" * 50)
+    
+    def place_player_in_room(self, player, room_name):
+        '''Places a player in a room.
+        
+        Args:
+            player: Player object
+            room_name: Name of the room (e.g., "Kitchen")
+            
+        Returns:
+            bool: True if successfully placed
+        '''
+        if room_name in self.rooms:
+            # Restore old position to "." if player was in hallway
+            old_pos = player.current_position
+            if old_pos in self.current_player_positions:
+                x, y = old_pos
+                self.board[x][y] = '.'
+                del self.current_player_positions[old_pos]
+            
+            player.current_room = room_name
+            return True
+        return False
+    
+    def move_player_to_hallway(self, player, position):
+        '''Moves a player from a room to a hallway position.
+        
+        Args:
+            player: Player object
+            position: (row, col) tuple for new hallway position
+        '''
+        # If player was in a hallway before, restore that position to "."
+        old_pos = player.current_position
+        if player.current_room is None and old_pos in self.current_player_positions:
+            x, y = old_pos
+            self.board[x][y] = '.'
+            del self.current_player_positions[old_pos]
+        
+        # Remove from room
+        player.current_room = None
+        
+        # Update position and place symbol on board
+        x, y = position
+        player.current_position = position
+        self.board[x][y] = player.symbol
+        self.current_player_positions[position] = player.name
+    
+    def move_player(self, player):
+        x, y = player.get_player_position()
+        
+        # Restore old position to "."
+        old_pos = player.previous_position
+        if player.current_room is None and old_pos is not None and old_pos in self.current_player_positions:
+            old_x, old_y = old_pos
+            self.board[old_x][old_y] = '.'
+            del self.current_player_positions[old_pos]
+        
+        # Clear room status if they were in one
+        player.current_room = None
+        
+        # Place player at new position
+        self.board[x][y] = player.symbol
+        self.current_player_positions[player.get_player_position()] = player.name
+        
+        return True
+    
+    def get_dimensions(self):
+        '''Returns the dimensions of the board as (rows, cols).'''
+        return self.board_length, self.board_width
+    
+    def is_wall(self, position):
+        '''Check if the given position is a wall.'''
+        row, col = position
+        return self.board[row][col] == '#'
+    
+    def is_occupied(self, position):
+        '''Check if the given position is occupied by a player.'''
+        return position in self.current_player_positions
+    
+    def is_door(self, position):
+        '''Check if the given position is a door.'''
+        row, col = position
+        return self.board[row][col] == 'd'
             
 if __name__ == "__main__":
     board = Board()
