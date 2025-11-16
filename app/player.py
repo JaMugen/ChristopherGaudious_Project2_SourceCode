@@ -121,10 +121,14 @@ class Player:
     def enter_room(self, room_name):
         '''Set the player's current room.'''
         self.current_room = room_name
+        self.previous_position = self.current_position
+        self.current_position = None  # Position is now undefined in room context
 
-    def exit_room(self):
+    def exit_room(self, position: tuple):
         '''Set the player's current room to None (in hallway).'''
         self.current_room = None
+        self.current_position = position
+        self.previous_position = position
 
     def get_current_room(self):
         '''Return the name of the room the player is currently in, or None.'''

@@ -38,7 +38,7 @@ class validation:
             raise InvalidActionException(f"Room {room_name} is not valid.")
         
         # Get player's current position
-        player_row, player_col = player.get_player_position()
+        player_row, player_col = player.get_previous_position()
         
         # Check if player is next to any door of this room
         for door_pos in room_layout['door_locations']:

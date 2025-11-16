@@ -288,8 +288,9 @@ class Board:
         '''
         if room_name in self.rooms:
             # Restore old position to "." if player was in hallway
-            old_pos = player.current_position
-            if old_pos in self.current_player_positions:
+            # Use previous_position since current_position is already set to None by enter_room()
+            old_pos = player.get_previous_position()
+            if old_pos is not None and old_pos in self.current_player_positions:
                 x, y = old_pos
                 self.board[x][y] = '.'
                 del self.current_player_positions[old_pos]

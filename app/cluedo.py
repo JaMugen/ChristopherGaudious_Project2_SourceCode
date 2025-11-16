@@ -278,7 +278,7 @@ class Cluedo:
             self.board.place_player_in_room(player, room_name)
             print(f"{player.get_colored_name()} has entered the {room_name}.")
         except Exception as e:
-            player.exit_room()
+            player.exit_room(player.get_previous_position())
             raise InvalidActionException(str(e))
 
     def exit_room(self, player: Player) -> None:
@@ -331,8 +331,7 @@ class Cluedo:
             exit_position = (exit_row, exit_col)
             
             # Exit the room first (updates player's current_position and clears current_room)
-            player.exit_room()
-            player.current_position = exit_position
+            player.exit_room(exit_position)
             
             # Validate the exit position using validation class
             try:
