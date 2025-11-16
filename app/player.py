@@ -84,16 +84,17 @@ class Player:
     def move(self, direction):
         '''Move the player in the specified direction.'''
         row, col = self.current_position
-        if direction.lower() == 'up':
-            self.move_to((row - 1, col))
-        elif direction.lower() == 'down':
-            self.move_to((row + 1, col))
-        elif direction.lower() == 'left':
-            self.move_to((row, col - 1))
-        elif direction.lower() == 'right':
-            self.move_to((row, col + 1))
-        else:
-            raise InvalidMoveException("Invalid move direction. Use 'up', 'down', 'left', or 'right'.")
+        match direction.lower():
+            case 'up':
+                self.move_to((row - 1, col))
+            case 'down':
+                self.move_to((row + 1, col))
+            case 'left':
+                self.move_to((row, col - 1))
+            case 'right':
+                self.move_to((row, col + 1))
+            case _:
+                raise InvalidActionException("Invalid move direction. Use 'up', 'down', 'left', or 'right'.")
     
     def get_player_position(self):
         '''Return the player's current position.'''
