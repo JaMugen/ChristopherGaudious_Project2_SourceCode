@@ -60,27 +60,40 @@ class Board:
     def move_player_on_board(self):
         "''Moves a player on the board.'''"
 
+    def get_room_symbol(self, room_name):
+        '''Returns the symbol for a given room from the board symbols mapping.'''
+        # Get the symbol to room name mapping from rules
+        board_symbols = self.rules.get_board_symbols()
+        # Reverse lookup: find symbol where value equals room_name
+        for symbol, name in board_symbols.items():
+            if name == room_name:
+                return symbol
+        return None
         
     def get_room_layouts(self):
         '''Returns 2D layouts for each room with halls (.), walls (#), doors (d), room spaces (R).'''
         return {
             "Kitchen": {
                 "position": (0, 0),  # Top-left corner position on board
-                "size": (5, 6),      # Length x Width
+                "size": (5, 6),
+                "door_locations": [(4, 4)],      # Length x Width
+                "exit_offsets": [(5, 4)],  # Where player ends up when exiting through each door
                 "layout": [
                     ['#', '#', '#', '#', '#', '#'],
                     ['#', 'K', 'K', 'K', 'K', '#'],
                     ['#', 'K', 'K', 'K', 'K', '#'],
                     ['#', 'K', 'K', 'K', 'K', '#'],
-                    ['#', '#', '#', '#', 'd', '#']  # S = Secret passage to Study
+                    ['#', '#', '#', '#', 'd', '#']  
                 ]
             },
             "Ballroom": {
                 "position": (0, 8),
                 "size": (6, 7),
+                "door_locations": [(5, 0), (6, 1),(6,4), (5, 6)],
+                "exit_offsets": [(5, -1), (7, 1), (7, 4), (5, 7)], 
                 "layout": [
                     ['.', '.', '#', '#', '#', '.', '.'],
-                    ['#', 'B', 'B', 'B', 'B', 'B', '#'],
+                    ['#', '#', 'B', 'B', 'B', '#', '#'],
                     ['#', 'B', 'B', 'B', 'B', 'B', '#'],
                     ['#', 'B', 'B', 'B', 'B', 'B', '#'],
                     ['#', 'B', 'B', 'B', 'B', 'B', '#'],
@@ -91,6 +104,8 @@ class Board:
             "Conservatory": {
                 "position": (0, 16),
                 "size": (4, 5),
+                "door_locations": [(2, 0)],
+                "exit_offsets": [(2, -1)],
                 "layout": [
                     ['#', '#', '#', '#', '#', '#'], 
                     ['#', 'C', 'C', 'C', 'C', '#'],
@@ -101,6 +116,8 @@ class Board:
             "Dining Room": {
                 "position": (7, 0),
                 "size": (7, 8),
+                    "door_locations": [(4,7), (6, 4)],
+                "exit_offsets": [(4, 8), (7, 4)],  
                 "layout": [
                     ['#', '#', '#', '#', '#', '.', '.', '.'],
                     ['#','D', 'D', 'D', 'D', '#', '#', '#'],
@@ -114,6 +131,8 @@ class Board:
             "Lounge": {
                 "position": (17, 0),
                 "size": (5, 7),
+                "door_locations": [(0, 6)],
+                "exit_offsets": [(0, 7)],  # Right door
                 "layout": [
                     ['#','#','#', '#', '#', '#', 'd'],
                     ['#', 'O', 'O', 'O', 'O', 'O', '#'],
@@ -125,6 +144,8 @@ class Board:
             "Hall": {
                 "position": (16, 9),
                 "size": (6, 6),
+                "door_locations": [(0, 2), (0, 3), (5, 5)],
+                "exit_offsets": [(-1, 2), (-1, 3), (5, 6)],  
                 "layout": [
                     ['#','#','d', 'd','#','#'],
                     ['#', 'H', 'H', 'H','H', '#'],
@@ -138,8 +159,10 @@ class Board:
             "Study": {
                 "position": (19, 16),
                 "size": (3, 6),
+                "door_locations": [(0, 1)],
+                "exit_offsets": [(-1, 1)],  # Top door
                 "layout": [
-                    ['#', 'D', '#', '#', '#', '#'],  
+                    ['#', 'd', '#', '#', '#', '#'],  
                     ['#', 'S', 'S', 'S', 'S', '#'],
                     ['#', '#', '#', '#', '#', '#']
                 ]
@@ -147,6 +170,8 @@ class Board:
             "Library": {
                 "position": (12, 16),
                 "size": (5, 6),
+                "door_locations": [(2, 0), (0, 4)],
+                "exit_offsets": [(2, -1), (-1, 4)], 
                 "layout": [
                     ['.', '#', '#', '#', 'd', '#'],
                     ['#', 'L', 'L', 'L', 'L', '#'],
@@ -158,6 +183,8 @@ class Board:
             "Billiard Room": {
                 "position": (6, 17),
                 "size": (5, 5),
+                "door_locations": [(1, 0),(0,3)],
+                "exit_offsets": [(1, -1), (-1, 3)],  
                 "layout": [
                     ['#', '#', '#', 'd', '#'],
                     ['d', 'R', 'R', 'R', '#'],
@@ -298,7 +325,7 @@ class Board:
         x, y = player.get_player_position()
         
         # Restore old position to "."
-        old_pos = player.previous_position
+        old_pos = player.get_previous_position()
         if player.current_room is None and old_pos is not None and old_pos in self.current_player_positions:
             old_x, old_y = old_pos
             self.board[old_x][old_y] = '.'
@@ -330,6 +357,16 @@ class Board:
         '''Check if the given position is a door.'''
         row, col = position
         return self.board[row][col] == 'd'
+    
+    def get_door_positions(self, room_name):
+        '''Returns the door positions for a given room.'''
+        room_layout = self.get_room_layouts()
+        if room_name in room_layout:
+            door_offsets = room_layout[room_name]['door_locations']
+            room_pos = room_layout[room_name]['position']
+            door_positions = [(room_pos[0] + offset[0], room_pos[1] + offset[1]) for offset in door_offsets]
+            return door_positions
+        return []
             
 if __name__ == "__main__":
     board = Board()
