@@ -12,7 +12,7 @@ except ImportError:
 class validation:
     
     @staticmethod
-    def validate_position(position, board: 'Board') -> bool:
+    def validate_position(position, board: 'Board', previous_moves: list) -> bool:
         '''Validate if the given position is within the board boundaries.'''
         rows, cols = board.get_dimensions()
         row, col = position
@@ -24,5 +24,7 @@ class validation:
             raise InvalidMoveException(f"Position {position} is already occupied by another player.")
         if board.is_door(position):
             raise InvalidMoveException(f"Position {position} is a door and cannot be moved to directly.")
+        if position in previous_moves:
+            raise InvalidMoveException(f"Position {position} has already been visited in the last move.")
         return True
         
