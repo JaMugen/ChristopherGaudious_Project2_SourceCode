@@ -18,6 +18,23 @@ except ImportError:
 
 class Cluedo:
     '''Main class to run the Cluedo game.'''
+
+    # Action constants
+    ACTION_DISPLAY_BOARD = "display"
+    ACTION_MOVE = "move"
+    ACTION_ENTER_ROOM = "enter"
+    ACTION_EXIT_ROOM = "exit"
+    ACTION_END_TURN = "end"
+    ACTION_END_GAME = "end game"
+    ACTION_CLEAR_SCREEN = "clear"
+
+
+    # Dev input
+    DEV_INPUT_TEST_MOVEMENT = "uula"
+
+    
+
+    # Initialization
     def __init__(self, end = False):
         self.end = end
         self.rules = Rules()
@@ -29,6 +46,7 @@ class Cluedo:
         self.players = []
         self.current_turn_index = 0
         self.solution = self.generate_solution()
+        self.previous_moves = []  # Track positions during current player's turn
         for card in self.solution.values():
             self.remove_card_from_deck(card, self.cards)
             self.add_card_to_deck(card, self.removed_cards)
@@ -151,33 +169,37 @@ class Cluedo:
 # Player Turns
     def play_turn(self, player: Player) -> bool:
         print(f"\nIt's {player.get_colored_name()}'s turn!")
+        
+        # Clear previous moves list at start of turn
+        self.previous_moves = []
+        
         moves = self.roll_die(player)
         print(f"{player.get_colored_name()} has {moves} moves for their turn.")
         while True:
             try:
                 choice = input("Enter an action or leave blank to see the list of actions: ")
                 match choice:
-                    case "display":
+                    case self.ACTION_DISPLAY_BOARD:
                         self.board.display_board(self.players)
-                    case "move":
+                    case self.ACTION_MOVE:
                         if moves <= 0:
                             print("Out of moves for this turn.")
                             continue
                         self.move(player)
                         moves -= 1
                         print(f"\nMoves remaining: {moves}")
-                    case "enter":
+                    case self.ACTION_ENTER_ROOM:
                         self.enter_room(player)
-                    case "exit":
+                    case self.ACTION_EXIT_ROOM:
                         self.exit_room(player)
-                    case "end":
+                    case self.ACTION_END_TURN:
                         break
-                    case "end game":
+                    case self.ACTION_END_GAME:
                         return True
-                    case "clear":
+                    case self.ACTION_CLEAR_SCREEN:
                         self.clear_screen()
                     case "":
-                        self.print_available_actions(player)
+                        self.print_available_actions()
                     case _: # default because python
                         raise InvalidActionException("Invalid action. Please choose a valid action.")
             except InvalidMoveException as e:
@@ -203,7 +225,7 @@ class Cluedo:
     def roll_die(self, player: Player) -> int:
         '''Play a turn for the given player.'''
         devop = input("\n Press enter to roll dice...")
-        if devop == "uula": # Code for testing movement
+        if devop == self.DEV_INPUT_TEST_MOVEMENT: # Code for testing movement
             value = 100
             return value
         value = player.roll_die()
@@ -330,14 +352,14 @@ class Cluedo:
         os.system('clear' if os.name == 'posix' else 'cls')
 
 
-    def get_available_actions(self, player: Player) -> list:
+    def get_available_actions(self) -> list:
         '''Returns a list of available actions for the player.'''
-        return {"move": "Move player", "display": "Display board", 
-                 "enter": "Enter room", "exit": "Exit room", "clear": "Clear screen", "end": "End turn", "end game": "End game"}
+        return {self.ACTION_MOVE: "Move player", self.ACTION_DISPLAY_BOARD: "Display board", 
+                 self.ACTION_ENTER_ROOM: "Enter room", self.ACTION_EXIT_ROOM: "Exit room", self.ACTION_CLEAR_SCREEN: "Clear screen", self.ACTION_END_TURN: "End turn", self.ACTION_END_GAME: "End game"}
     
-    def print_available_actions(self, player: Player) -> None:
+    def print_available_actions(self) -> None:
         '''Prints the available actions for the player.'''
-        actions = self.get_available_actions(player)
+        actions = self.get_available_actions()
         print("Available actions:")
         for action, description in actions.items():
             print(f"- {action}: {description}")
