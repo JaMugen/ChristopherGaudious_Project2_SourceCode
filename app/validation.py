@@ -1,5 +1,6 @@
 
 from app import cluedo
+from app.player import Player
 
 
 try:
