@@ -211,23 +211,119 @@ class Cluedo:
         return value
 
     def move(self, player: Player) -> None:
+        move = input("Enter movement direction: ")
+        
         try:
-            move = input("Enter movement direction: ")
-            
             # Let the player handle their own movement
             player.move(move)
             
             # Validate the new position
-            validation.validate_position(player.get_player_position(), self.board)
+            validation.validate_position(player.get_player_position(), self.get_board(), self.get_previous_moves())
             
             # If validation passes, update the board
             self.board.move_player(player)
+            
+            # Track this position in previous_moves
+            self.previous_moves.append(player.get_previous_position())
             print(f"Moved {move} successfully!")
             
-        except Exception as e:
-            # If validation fails, reset player to previous position
+        except InvalidMoveException as e:
+            # Reset player to previous position for invalid moves
             player.reset_to_previous_position()
             raise InvalidMoveException(str(e))
+        except InvalidActionException as e:
+            # Just print error for invalid actions
+            print(f"Error: {e}")
+
+    def enter_room(self, player: Player) -> None:
+        '''Handles player entering a room.'''
+        # Display the board first
+        self.board.display_board(self.players)
+        
+        # Display available rooms with their letters from rules
+        room_list = []
+        for room_name in self.rules.get_rooms():
+            room_symbol = self.board.get_room_symbol(room_name)
+            room_list.append(f"{room_name} ({room_symbol})")
+        print(f"\nRooms available to enter: {', '.join(room_list)}")
+        
+        room_name = input("Enter the room name to enter: ")
+        if room_name not in self.rules.get_rooms():
+            raise InvalidActionException(f"{room_name} is not a valid room.")
+        try:
+            player.enter_room(room_name)
+            validation.validate_enter_room(player, room_name, self.board)
+            self.board.place_player_in_room(player, room_name)
+            print(f"{player.get_colored_name()} has entered the {room_name}.")
+        except Exception as e:
+            player.exit_room()
+            raise InvalidActionException(str(e))
+
+    def exit_room(self, player: Player) -> None:
+        '''Handles player exiting a room.'''
+        room_name = player.current_room
+        if not room_name:
+            raise InvalidActionException(f"{player.get_colored_name()} is not currently in a room.")
+        
+        room_layouts = self.board.get_room_layouts()
+        room_layout = room_layouts.get(room_name)
+        
+        # Print the room layout with numbered doors
+        print(f"\n{room_name} Layout:")
+        door_locations = room_layout['door_locations']
+        layout = room_layout['layout']
+        
+        # Create a copy of the layout with numbered doors
+        for row_idx, row in enumerate(layout):
+            row_str = ""
+            for col_idx, cell in enumerate(row):
+                # Check if this position is a door
+                door_number = None
+                for idx, door_pos in enumerate(door_locations):
+                    if (row_idx, col_idx) == door_pos:
+                        door_number = idx + 1
+                        break
+                
+                if door_number:
+                    row_str += str(door_number) + " "
+                else:
+                    row_str += cell + " "
+            print(row_str)
+        
+        # Ask player to select a door
+        print(f"\nAvailable doors: {', '.join([str(i+1) for i in range(len(door_locations))])}")
+        door_choice = input("Enter door number to exit through: ")
+        
+        try:
+            door_index = int(door_choice) - 1
+            if door_index < 0 or door_index >= len(door_locations):
+                raise InvalidActionException(f"Invalid door number. Choose between 1 and {len(door_locations)}.")
+            
+            # Get the exit position using the exit_offsets
+            exit_offsets = room_layout['exit_offsets']
+            exit_offset = exit_offsets[door_index]
+            
+            # Calculate the board position where player exits to
+            exit_row = room_layout['position'][0] + exit_offset[0]
+            exit_col = room_layout['position'][1] + exit_offset[1]
+            exit_position = (exit_row, exit_col)
+            
+            # Exit the room first (updates player's current_position and clears current_room)
+            player.exit_room()
+            player.current_position = exit_position
+            
+            # Validate the exit position using validation class
+            try:
+                validation.validate_position(exit_position, self.board, [])
+            except Exception as e:
+                player.enter_room(room_name)
+                raise InvalidActionException(f"Cannot exit through door {door_choice}: {e}")
+            
+            self.board.move_player_to_hallway(player, exit_position)
+            print(f"{player.get_colored_name()} has exited the {room_name} through door {door_choice}.")
+            
+        except ValueError:
+            raise InvalidActionException("Please enter a valid number.")
 
     def clear_screen(self):
         '''Clears the terminal screen.'''
