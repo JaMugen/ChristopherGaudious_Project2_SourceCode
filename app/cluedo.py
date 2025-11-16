@@ -155,22 +155,31 @@ class Cluedo:
         print(f"{player.get_colored_name()} has {moves} moves for their turn.")
         while True:
             try:
-                choice = input("Enter an action (move/display/end) or leave blank to list of actions: ")
-                if choice == "display":
-                    self.board.display_board(self.players)
-                elif choice == "move":
-                    if moves <= 0:
-                        print("Out of moves for this turn.")
-                        continue
-                    self.move(player)
-                    moves -= 1
-                    print(f"\nMoves remaining: {moves}")
-                elif choice == "end":
-                    break
-                elif choice == "end game":
-                    return True
-                elif choice == "":
-                    print("Available actions: move, display, end, end game")
+                choice = input("Enter an action or leave blank to see the list of actions: ")
+                match choice:
+                    case "display":
+                        self.board.display_board(self.players)
+                    case "move":
+                        if moves <= 0:
+                            print("Out of moves for this turn.")
+                            continue
+                        self.move(player)
+                        moves -= 1
+                        print(f"\nMoves remaining: {moves}")
+                    case "enter":
+                        self.enter_room(player)
+                    case "exit":
+                        self.exit_room(player)
+                    case "end":
+                        break
+                    case "end game":
+                        return True
+                    case "clear":
+                        self.clear_screen()
+                    case "":
+                        self.print_available_actions(player)
+                    case _: # default because python
+                        raise InvalidActionException("Invalid action. Please choose a valid action.")
             except InvalidMoveException as e:
                 print(f"Invalid move: {e}")
 
