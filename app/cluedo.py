@@ -202,7 +202,10 @@ class Cluedo:
 
     def roll_die(self, player: Player) -> int:
         '''Play a turn for the given player.'''
-        input("\n Press enter to roll dice...")
+        devop = input("\n Press enter to roll dice...")
+        if devop == "uula": # Code for testing movement
+            value = 100
+            return value
         value = player.roll_die()
         player.display_roll()
         return value
