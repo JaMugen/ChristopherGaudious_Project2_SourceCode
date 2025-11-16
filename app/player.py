@@ -2,15 +2,9 @@ import random
 
 from colorama import Fore, Style
 try:
-    from app.config import Config
-    from app.rules import Rules
-    from app.exceptions import InvalidActionException, InvalidMoveException
-    from app.validation import validation
+    from app.exceptions import InvalidMoveException, InvalidActionException
 except ImportError:
-    from config import Config
-    from rules import Rules
-    from exceptions import InvalidActionException, InvalidMoveException
-    from app.validation import validation
+    from exceptions import InvalidMoveException, InvalidActionException
 
 
 class Player:
