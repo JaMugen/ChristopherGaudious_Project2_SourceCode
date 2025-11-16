@@ -100,6 +100,10 @@ class Player:
         '''Return the player's current position.'''
         return self.current_position
 
+    def get_previous_position(self):
+        '''Return the player's previous position.'''
+        return self.previous_position
+
     def move_to(self, position):
         '''Move player to a new position.'''
         self.previous_position = self.current_position
