@@ -103,13 +103,15 @@ class Rules:
         '''Returns the symbols used in room layouts.'''
         return {
             '#': 'Wall',
-            'D': 'Door/Dining Room Space', 
-            'K': 'Kitchen Space',
-            'B': 'Ballroom/Billiard Room Space',
-            'C': 'Conservatory Space',
-            'L': 'Lounge/Library Space',
-            'H': 'Hall Space',
-            'S': 'Study Space/Secret Passage',
-            'P': 'Player Position',
+            'd': 'Door',
+            'K': 'Kitchen',
+            'B': 'Ballroom',
+            'C': 'Conservatory',
+            'D': 'Dining Room',
+            'O': 'Lounge',
+            'H': 'Hall',
+            'S': 'Study',
+            'L': 'Library',
+            'I': 'Billiard Room',
             '.': 'Empty Space/Hallway'
         }
