@@ -117,6 +117,18 @@ class Player:
         '''Reset player to their previous position (undo last move).'''
         if self.previous_position is not None:
             self.current_position = self.previous_position
+
+    def enter_room(self, room_name):
+        '''Set the player's current room.'''
+        self.current_room = room_name
+
+    def exit_room(self):
+        '''Set the player's current room to None (in hallway).'''
+        self.current_room = None
+
+    def get_current_room(self):
+        '''Return the name of the room the player is currently in, or None.'''
+        return self.current_room
         
 
 if __name__ == "__main__":
