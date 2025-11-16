@@ -192,6 +192,13 @@ class Cluedo:
         self.clear_screen()
         return False
 
+    def get_previous_moves(self) -> list:
+        '''Returns the list of previous moves in the current turn.'''
+        return self.previous_moves
+    
+    def get_board(self) -> Board:
+        '''Returns the game board.'''
+        return self.board
 
     def roll_die(self, player: Player) -> int:
         '''Play a turn for the given player.'''
