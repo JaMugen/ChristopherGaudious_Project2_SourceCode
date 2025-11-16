@@ -27,4 +27,27 @@ class validation:
         if position in previous_moves:
             raise InvalidMoveException(f"Position {position} has already been visited in the last move.")
         return True
+    
+    @staticmethod
+    def validate_enter_room(player: 'Player', room_name: str, board: 'Board') -> bool:
+        '''Validate if the player can enter the specified room.'''
+        room_layouts = board.get_room_layouts()
+        room_layout = room_layouts.get(room_name)
+        if not room_layout:
+            raise InvalidActionException(f"Room {room_name} is not valid.")
+        
+        # Get player's current position
+        player_row, player_col = player.get_player_position()
+        
+        # Check if player is next to any door of this room
+        for door_pos in room_layout['door_locations']:
+            door_row = room_layout['position'][0] + door_pos[0]
+            door_col = room_layout['position'][1] + door_pos[1]
+            
+            # Check if player is adjacent to door (up, down, left, or right)
+            if (abs(player_row - door_row) == 1 and player_col == door_col) or \
+               (abs(player_col - door_col) == 1 and player_row == door_row):
+                return True
+        
+        raise InvalidActionException(f"Player {player.name} is not next to a door of the {room_name}; they cannot enter.")
         
