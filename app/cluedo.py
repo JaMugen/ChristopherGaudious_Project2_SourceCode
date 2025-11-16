@@ -329,6 +329,19 @@ class Cluedo:
         '''Clears the terminal screen.'''
         os.system('clear' if os.name == 'posix' else 'cls')
 
+
+    def get_available_actions(self, player: Player) -> list:
+        '''Returns a list of available actions for the player.'''
+        return {"move": "Move player", "display": "Display board", 
+                 "enter": "Enter room", "exit": "Exit room", "clear": "Clear screen", "end": "End turn", "end game": "End game"}
+    
+    def print_available_actions(self, player: Player) -> None:
+        '''Prints the available actions for the player.'''
+        actions = self.get_available_actions(player)
+        print("Available actions:")
+        for action, description in actions.items():
+            print(f"- {action}: {description}")
+
 if __name__ == "__main__":
     # Test the game initialization with players
     game = Cluedo(True)
