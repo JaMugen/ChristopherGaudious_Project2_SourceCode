@@ -1,9 +1,6 @@
-from calendar import c
-from encodings.punycode import T
 import random
 import os
 
-from colorama import Fore
 try:
     from app.rules import Rules
     from app.exceptions import InvalidActionException, InvalidMoveException
