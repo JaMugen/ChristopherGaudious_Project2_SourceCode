@@ -182,7 +182,12 @@ class Cluedo:
                         raise InvalidActionException("Invalid action. Please choose a valid action.")
             except InvalidMoveException as e:
                 print(f"Invalid move: {e}")
+            except InvalidActionException as e:
+                print(f"Invalid action: {e}")
 
+        # Clear previous moves at end of turn
+        self.previous_moves = []
+        
         # Clear screen at end of turn
         self.clear_screen()
         return False
