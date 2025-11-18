@@ -30,6 +30,7 @@ class Player:
         self.current_room = None  # Name of room player is in, None if in hallway
         self.cards = []  # Cards held by this player
         self.is_active = True  # Whether player is still in game
+        self.is_eliminated = False  # Whether player made wrong accusation
         self.roll = 0  # Current dice roll (die1, die2)
         
     def __str__(self):
@@ -48,6 +49,54 @@ class Player:
     def has_card(self, card):
         '''Check if player has a specific card.'''
         return card in self.cards
+    
+    def choose_card_to_show(self, matching_cards, to_player):
+        '''Allows this player to choose which card to show when they have multiple matches.
+        
+        Args:
+            matching_cards: List of cards that match the suggestion
+            to_player: The player who will see the card
+            
+        Returns:
+            str: The card chosen to show
+        '''
+        print(f"\n{self.get_colored_name()}, you have multiple matching cards: {', '.join(matching_cards)}")
+        print(f"Choose which card to show to {to_player.get_colored_name()}:")
+        
+        for idx, card in enumerate(matching_cards, 1):
+            print(f"{idx}. {card}")
+        
+        while True:
+            try:
+                choice = int(input("Enter card number: "))
+                if 1 <= choice <= len(matching_cards):
+                    return matching_cards[choice - 1]
+                else:
+                    print(f"Please enter a number between 1 and {len(matching_cards)}.")
+            except ValueError:
+                print("Please enter a valid number.")
+    
+    def make_suggestion_choices(self, available_suspects, available_weapons):
+        '''Allows this player to choose suspect and weapon for a suggestion.
+        
+        Args:
+            available_suspects: List of available suspect names
+            available_weapons: List of available weapon names
+            
+        Returns:
+            tuple: (suspect, weapon) chosen by the player
+        '''
+        print(f"\nAvailable suspects: {', '.join(available_suspects)}")
+        suspect = input("Enter suspect name: ")
+        if suspect not in available_suspects:
+            raise InvalidActionException(f"{suspect} is not a valid suspect.")
+        
+        print(f"\nAvailable weapons: {', '.join(available_weapons)}")
+        weapon = input("Enter weapon name: ")
+        if weapon not in available_weapons:
+            raise InvalidActionException(f"{weapon} is not a valid weapon.")
+        
+        return (suspect, weapon)
     
     def get_cards(self):
         '''Return list of cards held by player.'''
@@ -133,6 +182,16 @@ class Player:
     def get_current_room(self):
         '''Return the name of the room the player is currently in, or None.'''
         return self.current_room
+    
+    def eliminate(self):
+        '''Eliminates the player from taking turns.'''
+        self.is_eliminated = True
+        print(f"\n{self.get_colored_name()} has been eliminated from the game!")
+        input("Press Enter to continue...")
+    
+    def is_eliminated_player(self):
+        '''Returns whether the player is eliminated.'''
+        return self.is_eliminated
         
 
 if __name__ == "__main__":
