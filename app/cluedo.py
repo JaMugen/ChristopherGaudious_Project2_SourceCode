@@ -7,14 +7,26 @@ try:
     from app.board import Board
     from app.player import Player
     from app.config import Config
-    from app.validation import validation
+    from app.cluedo_actions import (
+        PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
+        ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
+        EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
+        DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
+        SecretPassageAction
+    )
 except ImportError:
     from rules import Rules
     from board import Board
     from player import Player
     from config import Config
-    from validation import validation
     from exceptions import InvalidActionException, InvalidMoveException
+    from cluedo_actions import (
+        PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
+        ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
+        EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
+        DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
+        SecretPassageAction
+    )
 
 class Cluedo:
     '''Main class to run the Cluedo game.'''
@@ -24,13 +36,21 @@ class Cluedo:
     ACTION_MOVE = "move"
     ACTION_ENTER_ROOM = "enter"
     ACTION_EXIT_ROOM = "exit"
+    ACTION_MAKE_SUGGESTION = "suggest"
+    ACTION_VIEW_LOG = "log"
     ACTION_END_TURN = "end"
     ACTION_END_GAME = "end game"
     ACTION_CLEAR_SCREEN = "clear"
-
+    ACTION_ACCUSE = "accuse"
+    ACTION_SECRET_PASSAGE = "secret"
+    
+    # Actions that automatically end the turn
+    ACTIONS_THAT_END_TURN = ["accuse", "suggest", "enter", "secret"]
 
     # Dev input
     DEV_INPUT_TEST_MOVEMENT = "uula"
+    DEV_INPUT_DISPLAY_PLAYERS_CARDS = "uulc"
+    DEV_INPUT_DISPLAY_SOLUTIONS_CARDS = "uuls"
 
     
 
@@ -47,14 +67,72 @@ class Cluedo:
         self.current_turn_index = 0
         self.solution = self.generate_solution()
         self.previous_moves = []  # Track positions during current player's turn
+        self.suggestion_log = []  # Track all suggestions and refutations
         for card in self.solution.values():
             self.remove_card_from_deck(card, self.cards)
             self.add_card_to_deck(card, self.removed_cards)
         self.create_players()
-        while not self.end:
-            player = self.players[self.current_turn_index]
+        self.distribute_cards()
+        self.setup_action_factory()
+    
+    def setup_action_factory(self):
+        '''Sets up the player action factory with all available actions.'''
+        self.action_factory = PlayerActionFactory()
+        
+        # Register all actions
+        self.action_factory.register_action(self.ACTION_DISPLAY_BOARD, DisplayBoardAction)
+        self.action_factory.register_action(self.ACTION_MOVE, MoveAction)
+        self.action_factory.register_action(self.ACTION_ENTER_ROOM, EnterRoomAction)
+        self.action_factory.register_action(self.ACTION_EXIT_ROOM, ExitRoomAction)
+        self.action_factory.register_action(self.ACTION_MAKE_SUGGESTION, MakeSuggestionAction)
+        self.action_factory.register_action(self.ACTION_VIEW_LOG, ViewLogAction)
+        self.action_factory.register_action(self.ACTION_END_TURN, EndTurnAction)
+        self.action_factory.register_action(self.ACTION_END_GAME, EndGameAction)
+        self.action_factory.register_action(self.ACTION_CLEAR_SCREEN, ClearScreenAction)
+        self.action_factory.register_action(self.DEV_INPUT_DISPLAY_PLAYERS_CARDS, DisplayPlayersCardsAction)
+        self.action_factory.register_action(self.DEV_INPUT_DISPLAY_SOLUTIONS_CARDS, DisplaySolutionAction)
+        self.action_factory.register_action("", ShowAvailableActionsAction)
+        self.action_factory.register_action(self.ACTION_ACCUSE, AccuseAction)
+        self.action_factory.register_action(self.ACTION_SECRET_PASSAGE, SecretPassageAction)
+
+    def distribute_cards(self):
+        '''Distributes the remaining cards equally among all players.'''
+        random.shuffle(self.cards)
+        num_players = len(self.players)
+        
+        card_index = 0
+        for card in self.cards:
+            player = self.players[card_index % num_players]
+            player.add_card(card)
+            card_index += 1
+        
+        print(f"\nCards have been distributed to the {num_players} players.")
+
+    def start(self):
+        '''Starts the main game loop.'''
+        while not self.get_end():
+            player = self.get_current_player()
+            
+            # Skip eliminated players' turns
+            if player.is_eliminated_player():
+                print(f"\n{player.get_colored_name()} is eliminated and skips their turn.")
+                self.next_turn()
+                continue
+            
             self.end = self.play_turn(player)
-            self.current_turn_index = (self.current_turn_index + 1) % len(self.players)
+            self.next_turn()
+    
+    def get_end(self):
+        '''Returns whether the game has ended.'''
+        return self.end
+    
+    def get_current_player(self):
+        '''Returns the current player based on turn index.'''
+        return self.players[self.current_turn_index]
+    
+    def next_turn(self):
+        '''Advances to the next player's turn.'''
+        self.current_turn_index = (self.current_turn_index + 1) % len(self.players)
 
     # Player 
 
@@ -118,6 +196,19 @@ class Cluedo:
     def get_solution(self):
         '''Returns the current solution.'''
         return self.solution
+    
+    def check_accusation(self, accusation):
+        '''Checks if an accusation matches the solution.
+        
+        Args:
+            accusation: Dict with 'suspect', 'weapon', 'room' keys
+            
+        Returns:
+            bool: True if accusation matches solution exactly
+        '''
+        return (accusation['suspect'] == self.solution['suspect'] and
+                accusation['weapon'] == self.solution['weapon'] and
+                accusation['room'] == self.solution['room'])
 
     def display_solution(self, solution):
         '''Displays the solution in a formatted way.'''
@@ -178,30 +269,38 @@ class Cluedo:
         while True:
             try:
                 choice = input("Enter an action or leave blank to see the list of actions: ")
-                match choice:
-                    case self.ACTION_DISPLAY_BOARD:
-                        self.board.display_board(self.players)
-                    case self.ACTION_MOVE:
-                        if moves <= 0:
-                            print("Out of moves for this turn.")
-                            continue
-                        self.move(player)
-                        moves -= 1
-                        print(f"\nMoves remaining: {moves}")
-                    case self.ACTION_ENTER_ROOM:
-                        self.enter_room(player)
-                    case self.ACTION_EXIT_ROOM:
-                        self.exit_room(player)
-                    case self.ACTION_END_TURN:
-                        break
-                    case self.ACTION_END_GAME:
+                
+                # Special handling for move action (needs move count check)
+                if choice == self.ACTION_MOVE:
+                    if moves <= 0:
+                        print("Out of moves for this turn.")
+                        continue
+                
+                # Special handling for end turn action (needs to break loop)
+                if choice == self.ACTION_END_TURN:
+                    break
+                
+                # Use factory to create and execute action
+                try:
+                    action = self.action_factory.create_action(choice)
+                    end_game, moves_used = action.execute(self, player)
+                    
+                    if end_game:
                         return True
-                    case self.ACTION_CLEAR_SCREEN:
-                        self.clear_screen()
-                    case "":
-                        self.print_available_actions()
-                    case _: # default because python
+                    
+                    # Check if this action automatically ends the turn
+                    if choice in self.ACTIONS_THAT_END_TURN:
+                        break
+                    
+                    moves -= moves_used
+                    if moves_used > 0:
+                        print(f"\nMoves remaining: {moves}")
+                        
+                except InvalidActionException as e:
+                    if "Unknown action" in str(e):
                         raise InvalidActionException("Invalid action. Please choose a valid action.")
+                    raise
+                    
             except InvalidMoveException as e:
                 print(f"Invalid move: {e}")
             except InvalidActionException as e:
@@ -232,129 +331,123 @@ class Cluedo:
         player.display_roll()
         return value
 
-    def move(self, player: Player) -> None:
-        move = input("Enter movement direction: ")
-        
-        try:
-            # Let the player handle their own movement
-            player.move(move)
-            
-            # Validate the new position
-            validation.validate_position(player.get_player_position(), self.get_board(), self.get_previous_moves())
-            
-            # If validation passes, update the board
-            self.board.move_player(player)
-            
-            # Track this position in previous_moves
-            self.previous_moves.append(player.get_previous_position())
-            print(f"Moved {move} successfully!")
-            
-        except InvalidMoveException as e:
-            # Reset player to previous position for invalid moves
-            player.reset_to_previous_position()
-            raise InvalidMoveException(str(e))
-        except InvalidActionException as e:
-            # Just print error for invalid actions
-            print(f"Error: {e}")
-
-    def enter_room(self, player: Player) -> None:
-        '''Handles player entering a room.'''
-        # Display the board first
-        self.board.display_board(self.players)
-        
-        # Display available rooms with their letters from rules
-        room_list = []
-        for room_name in self.rules.get_rooms():
-            room_symbol = self.board.get_room_symbol(room_name)
-            room_list.append(f"{room_name} ({room_symbol})")
-        print(f"\nRooms available to enter: {', '.join(room_list)}")
-        
-        room_name = input("Enter the room name to enter: ")
-        if room_name not in self.rules.get_rooms():
-            raise InvalidActionException(f"{room_name} is not a valid room.")
-        try:
-            player.enter_room(room_name)
-            validation.validate_enter_room(player, room_name, self.board)
-            self.board.place_player_in_room(player, room_name)
-            print(f"{player.get_colored_name()} has entered the {room_name}.")
-        except Exception as e:
-            player.exit_room(player.get_previous_position())
-            raise InvalidActionException(str(e))
-
-    def exit_room(self, player: Player) -> None:
-        '''Handles player exiting a room.'''
-        room_name = player.current_room
-        if not room_name:
-            raise InvalidActionException(f"{player.get_colored_name()} is not currently in a room.")
-        
-        room_layouts = self.board.get_room_layouts()
-        room_layout = room_layouts.get(room_name)
-        
-        # Print the room layout with numbered doors
-        print(f"\n{room_name} Layout:")
-        door_locations = room_layout['door_locations']
-        layout = room_layout['layout']
-        
-        # Create a copy of the layout with numbered doors
-        for row_idx, row in enumerate(layout):
-            row_str = ""
-            for col_idx, cell in enumerate(row):
-                # Check if this position is a door
-                door_number = None
-                for idx, door_pos in enumerate(door_locations):
-                    if (row_idx, col_idx) == door_pos:
-                        door_number = idx + 1
-                        break
-                
-                if door_number:
-                    row_str += str(door_number) + " "
-                else:
-                    row_str += cell + " "
-            print(row_str)
-        
-        # Ask player to select a door
-        print(f"\nAvailable doors: {', '.join([str(i+1) for i in range(len(door_locations))])}")
-        door_choice = input("Enter door number to exit through: ")
-        
-        try:
-            door_index = int(door_choice) - 1
-            if door_index < 0 or door_index >= len(door_locations):
-                raise InvalidActionException(f"Invalid door number. Choose between 1 and {len(door_locations)}.")
-            
-            # Get the exit position using the exit_offsets
-            exit_offsets = room_layout['exit_offsets']
-            exit_offset = exit_offsets[door_index]
-            
-            # Calculate the board position where player exits to
-            exit_row = room_layout['position'][0] + exit_offset[0]
-            exit_col = room_layout['position'][1] + exit_offset[1]
-            exit_position = (exit_row, exit_col)
-            
-            # Exit the room first (updates player's current_position and clears current_room)
-            player.exit_room(exit_position)
-            
-            # Validate the exit position using validation class
-            try:
-                validation.validate_position(exit_position, self.board, [])
-            except Exception as e:
-                player.enter_room(room_name)
-                raise InvalidActionException(f"Cannot exit through door {door_choice}: {e}")
-            
-            self.board.move_player_to_hallway(player, exit_position)
-            print(f"{player.get_colored_name()} has exited the {room_name} through door {door_choice}.")
-            
-        except ValueError:
-            raise InvalidActionException("Please enter a valid number.")
-
     def clear_screen(self):
         '''Clears the terminal screen.'''
         os.system('clear' if os.name == 'posix' else 'cls')
+
+    def refute_suggestion(self, suggesting_player: Player, suggestion: dict) -> tuple:
+        '''Handles the refutation process for a suggestion.
+        
+        Goes clockwise from the suggesting player. Stops after the first player
+        shows a matching card.
+        
+        Args:
+            suggesting_player: The player who made the suggestion
+            suggestion: Dict with 'suspect', 'weapon', 'room' keys
+            
+        Returns:
+            tuple: (refuting_player, shown_card) or (None, None) if no one can refute
+        '''
+        # Get suggesting player's index
+        suggester_index = self.players.index(suggesting_player)
+        
+        refuting_player = None
+        shown_card = None
+        
+        # Check players clockwise starting from the next player
+        # Include eliminated players in refutation process
+        for i in range(1, len(self.players)):
+            player_index = (suggester_index + i) % len(self.players)
+            player = self.players[player_index]
+            
+            status = " (eliminated)" if player.is_eliminated_player() else ""
+            input(f"\nPress enter to have {player.get_colored_name()}{status} check for refutation...")
+            # Check which cards this player has that match the suggestion
+            matching_cards = []
+            for card in [suggestion['suspect'], suggestion['weapon'], suggestion['room']]:
+                if player.has_card(card):
+                    matching_cards.append(card)
+            
+            # If player has matching cards, they must show one
+            if matching_cards:
+                print(f"\n{player.get_colored_name()} has a card to show.")
+                
+                if len(matching_cards) == 1:
+                    # Only one card to show
+                    card_to_show = matching_cards[0]
+                else:
+                    # Player chooses which card to show
+                    card_to_show = player.choose_card_to_show(matching_cards, suggesting_player)
+                
+                # Only the suggesting player sees the actual card
+                self.clear_screen()
+                input(f"\nPress enter to reveal the card to {suggesting_player.get_colored_name()}...")
+                print(f"\n{suggesting_player.get_colored_name()} privately sees: {card_to_show}")
+                input("Press enter to continue...")
+                
+                refuting_player = player
+                shown_card = card_to_show
+                # Stop after first refutation
+                break
+        
+        # Return refutation result
+        if refuting_player:
+            return (refuting_player, shown_card)
+        return (None, None)
+    
+    def log_suggestion(self, suggesting_player: Player, suggestion: dict, refuting_player: Player, shown_card: str) -> None:
+        '''Logs a suggestion and its refutation to the game log.
+        
+        Args:
+            suggesting_player: Player who made the suggestion
+            suggestion: Dict with 'suspect', 'weapon', 'room' keys
+            refuting_player: Player who refuted (or None)
+            shown_card: Card that was shown (or None)
+        '''
+        refuting_player_name = None
+        if refuting_player:
+            refuting_player_name = refuting_player.get_colored_name()
+        
+        log_entry = {
+            "turn": len(self.suggestion_log) + 1,
+            "suggesting_player": suggesting_player.name,
+            "suggestion": suggestion.copy(),
+            "refuting_player": refuting_player_name,
+            "shown_card": shown_card
+        }
+        self.suggestion_log.append(log_entry)
+    
+    def display_suggestion_log(self) -> None:
+        '''Displays the complete suggestion log.'''
+        if not self.suggestion_log:
+            print("\nNo suggestions have been made yet.")
+            return
+        
+        print("\n" + "=" * 80)
+        print("SUGGESTION LOG".center(80))
+        print("=" * 80)
+        
+        for entry in self.suggestion_log:
+            print(f"\nTurn {entry['turn']}: {entry['suggesting_player']}")
+            print(f"  Suggested: {entry['suggestion']['suspect']} with the {entry['suggestion']['weapon']} in the {entry['suggestion']['room']}")
+            
+            if entry['refuting_player']:
+                print(f"  Refuted by: {entry['refuting_player']}")
+                # Note: shown_card is visible to all players in the log
+                print(f"    Card shown: {entry['shown_card']}")
+            else:
+                print("  No one could refute!")
+        
+        print("\n" + "=" * 80)
 
 
     def get_available_actions(self) -> list:
         '''Returns a list of available actions for the player.'''
         return {self.ACTION_MOVE: "Move player", self.ACTION_DISPLAY_BOARD: "Display board", 
-                 self.ACTION_ENTER_ROOM: "Enter room", self.ACTION_EXIT_ROOM: "Exit room", self.ACTION_CLEAR_SCREEN: "Clear screen", self.ACTION_END_TURN: "End turn", self.ACTION_END_GAME: "End game"}
+                 self.ACTION_ENTER_ROOM: "Enter room", self.ACTION_EXIT_ROOM: "Exit room", 
+                 self.ACTION_MAKE_SUGGESTION: "Make suggestion", self.ACTION_VIEW_LOG: "View suggestion log",
+                 self.ACTION_CLEAR_SCREEN: "Clear screen", self.ACTION_END_TURN: "End turn", self.ACTION_END_GAME: "End game",
+                 self.ACTION_SECRET_PASSAGE: "Use secret passage", self.ACTION_ACCUSE: "Make accusation"}
     
     def print_available_actions(self) -> None:
         '''Prints the available actions for the player.'''
@@ -362,6 +455,15 @@ class Cluedo:
         print("Available actions:")
         for action, description in actions.items():
             print(f"- {action}: {description}")
+
+    def display_players_cards(self) -> None:
+        '''Displays all players and their cards (for dev/testing purposes).'''
+        print("\n=== PLAYERS AND THEIR CARDS ===")
+        for player in self.players:
+            print(f"\n{player.get_colored_name()}'s cards:")
+            for card in player.get_cards():
+                print(f"- {card}")
+        print("================================\n")
 
 if __name__ == "__main__":
     # Test the game initialization with players

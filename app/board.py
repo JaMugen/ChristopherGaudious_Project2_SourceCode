@@ -4,7 +4,7 @@ try:
 except ImportError:
     from rules import Rules
     from config import Config
-from colorama import init, Fore, Back, Style
+from colorama import init, Style
 
 # Initialize colorama for cross-platform colored output
 init(autoreset=True)
@@ -56,6 +56,68 @@ class Board:
     def apply_color_to_text(self, text, color):
         '''Apply colorama color to text with auto-reset.'''
         return f"{color}{text}{Style.RESET_ALL}"
+
+    def display_room_layout(self, room_name):
+        '''Displays the room layout with numbered doors.
+        
+        Args:
+            room_name: Name of the room to display
+        '''
+        room_layouts = self.get_room_layouts()
+        room_layout = room_layouts.get(room_name)
+        
+        if not room_layout:
+            return
+        
+        print(f"\n{room_name} Layout:")
+        door_locations = room_layout['door_locations']
+        layout = room_layout['layout']
+        
+        # Create a copy of the layout with numbered doors
+        for row_idx, row in enumerate(layout):
+            row_str = ""
+            for col_idx, cell in enumerate(row):
+                # Check if this position is a door
+                door_number = None
+                for idx, door_pos in enumerate(door_locations):
+                    if (row_idx, col_idx) == door_pos:
+                        door_number = idx + 1
+                        break
+                
+                if door_number:
+                    row_str += str(door_number) + " "
+                else:
+                    row_str += cell + " "
+            print(row_str)
+    
+    def get_door_locations(self, room_name):
+        '''Returns the door locations for a given room.
+        
+        Args:
+            room_name: Name of the room
+            
+        Returns:
+            list: List of door location tuples, or empty list if room not found
+        '''
+        room_layouts = self.get_room_layouts()
+        room_layout = room_layouts.get(room_name)
+        
+        if room_layout:
+            return room_layout['door_locations']
+        return []
+    
+    def get_room_layout(self, room_name):
+        '''Returns the layout information for a given room.
+        
+        Args:
+            room_name: Name of the room
+            
+        Returns:
+            dict: Room layout dictionary with position, size, door_locations, exit_offsets, and layout keys
+                  Returns None if room not found
+        '''
+        room_layouts = self.get_room_layouts()
+        return room_layouts.get(room_name)
 
     def move_player_on_board(self):
         "''Moves a player on the board.'''"
@@ -255,9 +317,9 @@ class Board:
         players_in_rooms = [p for p in players if p.current_room is not None]
         
         if players_in_rooms:
-            print("\n" + "=" * 50)
-            print("PLAYERS IN ROOMS:")
-            print("=" * 50)
+            print("\n" + "=" * 80)
+            print("PLAYERS IN ROOMS:".center(80))
+            print("=" * 80)
             
             # Group players by room
             rooms_dict = {}
