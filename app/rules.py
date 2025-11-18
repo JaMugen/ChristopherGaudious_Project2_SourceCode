@@ -115,3 +115,12 @@ class Rules:
             'I': 'Billiard Room',
             '.': 'Empty Space/Hallway'
         }
+    
+    def get_secret_passages(self):
+        '''Returns the secret passage connections between rooms.'''
+        return {
+            "Kitchen": "Study",
+            "Study": "Kitchen",
+            "Lounge": "Conservatory",
+            "Conservatory": "Lounge"
+        }
