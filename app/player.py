@@ -192,7 +192,10 @@ class Player:
     def is_eliminated_player(self):
         '''Returns whether the player is eliminated.'''
         return self.is_eliminated
-        
+    
+    def get_colored_symbol(self):
+        '''Returns the player's symbol with color formatting and reset.'''
+        return f"{self.color}{self.symbol}{Style.RESET_ALL}"
 
 if __name__ == "__main__":
     # Test player creation and movement
