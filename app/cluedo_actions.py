@@ -23,6 +23,42 @@ class PlayerAction:
         '''
         raise NotImplementedError("Subclasses must implement execute()")
 
+    def suggestion_and_optional_accuse(self, game, player):
+        """Run the suggestion flow (with retry on InvalidActionException)
+        and then optionally allow the player to make an accusation.
+
+        Returns:
+            Tuple of (should_end_game: bool, moves_used: int)
+        """
+        # Suggestion attempt with retry on recoverable errors
+        while True:
+            try:
+                suggestion_action = MakeSuggestionAction()
+                end_game, moves_used = suggestion_action.execute(game, player)
+                break
+            except InvalidActionException as e:
+                print(f"Suggestion error: {e}")
+                print("Please try your suggestion again.")
+                continue
+            except Exception as e:
+                raise InvalidActionException(str(e))
+
+        # After a successful suggestion, allow the player to accuse or end
+        while True:
+            try:
+                resp = input("\nDo you want to make an accusation (y/n): ")
+                if resp.lower() == 'y':
+                    accusation_action = AccuseAction()
+                    end_game_accuse, moves_used_accuse = accusation_action.execute(game, player)
+                    return (end_game_accuse, moves_used_accuse)
+                elif resp.lower() == 'n':
+                    return (end_game, moves_used)
+                else:
+                    print("Please enter 'y' or 'n'.")
+            except Exception as e:
+                print(f"Error: {e}")
+                continue
+
 
 class DisplayBoardAction(PlayerAction):
     '''Action to display the game board.'''
@@ -88,24 +124,8 @@ class EnterRoomAction(PlayerAction):
             game.board.place_player_in_room(player, room_name)
             print(f"{player.get_colored_name()} has entered the {room_name}.")
             
-            # Automatically trigger suggestion action after entering room.
-            # If a suggestion raises an InvalidActionException, allow the
-            # player to redo the suggestion (stay in this flow) instead of
-            # returning to the main play loop.
-            while True:
-                try:
-                    suggestion_action = MakeSuggestionAction()
-                    end_game, moves_used = suggestion_action.execute(game, player)
-                    break
-                except InvalidActionException as e:
-                    # Recoverable suggestion error: inform player and retry
-                    print(f"Suggestion error: {e}")
-                    print("Please try your suggestion again.")
-                    continue
-                except Exception as e:
-                    # Unexpected error: surface as InvalidActionException
-                    raise InvalidActionException(str(e))
-
+            # Run the suggestion + optional-accuse flow using the shared helper
+            end_game, moves_used = self.suggestion_and_optional_accuse(game, player)
             return (end_game, moves_used)
         except Exception as e:
             player.exit_room(player.get_previous_position())
@@ -194,6 +214,9 @@ class MakeSuggestionAction(PlayerAction):
             suspected_player.enter_room(room)
             game.board.place_player_in_room(suspected_player, room)
             print(f"\n{suspected_player.get_colored_name()} has been moved to {room}.")
+
+        # Move the suggested weapon to the room
+        game.board.place_weapon_in_room(weapon, room)
         
         # Start refutation process clockwise from the suggesting player
         refuting_player, shown_card = game.refute_suggestion(player, suggestion)
@@ -336,21 +359,8 @@ class SecretPassageAction(PlayerAction):
         
         print(f"{player.get_colored_name()} has arrived in the {destination_room}.")
         
-        # Automatically trigger suggestion action after using secret passage.
-        # Allow the player to retry the suggestion if it raises an
-        # InvalidActionException so they don't have to return to play_turn.
-        while True:
-            try:
-                suggestion_action = MakeSuggestionAction()
-                end_game, moves_used = suggestion_action.execute(game, player)
-                break
-            except InvalidActionException as e:
-                print(f"Suggestion error: {e}")
-                print("Please try your suggestion again.")
-                continue
-            except Exception as e:
-                raise InvalidActionException(str(e))
-
+        # Run the suggestion + optional-accuse flow using the shared helper
+        end_game, moves_used = self.suggestion_and_optional_accuse(game, player)
         return (end_game, moves_used)
         
         
