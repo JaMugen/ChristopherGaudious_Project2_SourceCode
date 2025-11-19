@@ -18,6 +18,8 @@ class Board:
     - Letters = room spaces (K=Kitchen, B=Ballroom, etc.)
     - Player symbols = S, M, W, G, P, L (colored)
     '''
+    BAR_LENGTH = 50
+
     def __init__(self):
         rules = Rules()
         config = Config()
@@ -30,6 +32,7 @@ class Board:
         self.player_colors = config.get_player_colors()
         self.player_symbols = rules.get_player_symbols()
         self.player_start_positions = config.get_player_start_positions()
+        self.weapons_rooms = config.get_weapon_rooms()
         self.current_player_positions = {}  # (row, col) -> player name
         self.rules = rules
         
@@ -258,26 +261,6 @@ class Board:
         }
 
 
-    def display_legend(self):
-        '''Displays a legend showing player colors and symbols.'''
-        print("\n=== PLAYER LEGEND ===")
-        for player in self.suspects:
-            color = self.player_colors[player]
-            symbol = self.player_symbols[player]
-            colored_symbol = self.apply_color_to_text(symbol, color)
-            print(f"{colored_symbol} - {player}")
-        print("=====================\n")
-
-    def get_secret_passages(self):
-        '''Returns the secret passages in the game.'''
-        return {
-            "Kitchen": "Study",
-            "Study": "Kitchen",
-            "Conservatory": "Lounge",
-            "Lounge": "Conservatory"
-        }
-    
-
     def display_board(self, players):
         '''Displays the board with player tokens only for players in hallways.
         Players in rooms are not shown on the board.
@@ -285,10 +268,13 @@ class Board:
         Args:
             players: List of Player objects
         '''
+        # Display weapons in rooms
+        self.display_weapons_in_rooms()
+
         # Build position map only for players NOT in rooms
         position_to_player = {}
         for player in players:
-            if player.current_room is None:  # Only show players in hallways
+            if player.get_current_room() is None:  # Only show players in hallways
                 pos = player.current_position
                 position_to_player[pos] = player
         
@@ -314,17 +300,20 @@ class Board:
         Args:
             players: List of Player objects
         '''
-        players_in_rooms = [p for p in players if p.current_room is not None]
+        players_in_rooms = []
+        for p in players:
+            if p.get_current_room() is not None:
+                players_in_rooms.append(p)
         
         if players_in_rooms:
-            print("\n" + "=" * 80)
-            print("PLAYERS IN ROOMS:".center(80))
-            print("=" * 80)
+            print("\n" + "=" * self.BAR_LENGTH)
+            print("PLAYERS IN ROOMS:".center(self.BAR_LENGTH))
+            print("=" * self.BAR_LENGTH)
             
             # Group players by room
             rooms_dict = {}
             for player in players_in_rooms:
-                room = player.current_room
+                room = player.get_current_room()
                 if room not in rooms_dict:
                     rooms_dict[room] = []
                 rooms_dict[room].append(player)
@@ -333,11 +322,40 @@ class Board:
             for room_name in sorted(rooms_dict.keys()):
                 print(f"\n{room_name}:")
                 for player in rooms_dict[room_name]:
-                    colored_symbol = self.apply_color_to_text(player.symbol, player.color)
-                    print(f"  {colored_symbol} - {player.get_colored_name()}")
+                    print(f"  {player.get_colored_symbol()} - {player.get_colored_name()}")
             
-            print("=" * 50)
+            print("=" * self.BAR_LENGTH)
     
+    def display_weapons_in_rooms(self):
+        '''Displays which weapons are currently in rooms.'''
+        print("\n" + "=" * self.BAR_LENGTH)
+        print("WEAPONS IN ROOMS:".center(self.BAR_LENGTH))
+        print("=" * self.BAR_LENGTH)
+        
+        # Group weapons by room
+        rooms_dict = {}
+        for weapon, room in self.weapons_rooms.items():
+            if room not in rooms_dict:
+                rooms_dict[room] = []
+            rooms_dict[room].append(weapon)
+        
+        # Display each room and its weapons
+        for room_name in sorted(rooms_dict.keys()):
+            print(f"\n{room_name}:")
+            for weapon in rooms_dict[room_name]:
+                print(f"  {weapon}")
+        
+        print("=" * self.BAR_LENGTH)
+    
+    def place_weapon_in_room(self, weapon, room_name):
+        '''Places a weapon in a specified room.
+        
+        Args:
+            weapon: Name of the weapon (e.g., "Candlestick")
+            room_name: Name of the room (e.g., "Kitchen")
+        '''
+        self.weapons_rooms[weapon] = room_name
+
     def place_player_in_room(self, player, room_name):
         '''Places a player in a room.
         
