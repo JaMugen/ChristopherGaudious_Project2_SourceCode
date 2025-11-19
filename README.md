@@ -1,8 +1,11 @@
 # 1. Get project code
-
 Clone the repository or unzip the project source code.
+The project is located at https://github.com/JaMugen/ChristopherGaudious_Project2_SourceCode
+
+Project zip can also be downloaded from the github link using the download zip option in provided under code. 
+
 # Enter the project directory
-The repository or source code is titled ChristopherGaudious_Project2_SourceCode enter this directory to run the project.
+The directory of the source code is titled ChristopherGaudious_Project2_SourceCode enter this directory to run the project.
 # Create and Activate Virtual Environment
 
 ## Create Environment
