@@ -26,3 +26,14 @@ class Config:
             "Mrs. Peacock": (21, 7),
             "Professor Plum": (18, 21)
         }
+    
+    def get_weapon_rooms(self):
+        '''Returns the rooms where each weapon starts.'''
+        return {
+            "Candlestick": "Library",
+            "Dagger": "Kitchen",
+            "Lead Pipe": "Conservatory",
+            "Revolver": "Lounge",
+            "Rope": "Ballroom",
+            "Wrench": "Dining Room"
+        }
