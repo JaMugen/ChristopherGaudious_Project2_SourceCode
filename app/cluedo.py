@@ -45,7 +45,7 @@ class Cluedo:
     ACTION_SECRET_PASSAGE = "secret"
     
     # Actions that automatically end the turn
-    ACTIONS_THAT_END_TURN = ["accuse", "suggest", "enter", "secret"]
+    ACTIONS_THAT_END_TURN = ["accuse", "suggest", "enter", "secret", "end"]
 
     # Dev input
     DEV_INPUT_TEST_MOVEMENT = "uula"
@@ -277,8 +277,6 @@ class Cluedo:
                         continue
                 
                 # Special handling for end turn action (needs to break loop)
-                if choice == self.ACTION_END_TURN:
-                    break
                 
                 # Use factory to create and execute action
                 try:
