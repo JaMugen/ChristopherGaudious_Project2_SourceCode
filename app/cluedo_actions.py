@@ -23,41 +23,28 @@ class PlayerAction:
         '''
         raise NotImplementedError("Subclasses must implement execute()")
 
-    def suggestion_and_optional_accuse(self, game, player):
-        """Run the suggestion flow (with retry on InvalidActionException)
-        and then optionally allow the player to make an accusation.
+    def suggestion(self, game, player):
+        """Run the suggestion action with retry on recoverable errors.
+
+        The `MakeSuggestionAction` itself handles the optional accusation
+        prompt after a successful suggestion, so this helper only needs to
+        call it and return the result. If the suggestion raises
+        `InvalidActionException` it will prompt the player to retry.
 
         Returns:
             Tuple of (should_end_game: bool, moves_used: int)
         """
-        # Suggestion attempt with retry on recoverable errors
         while True:
             try:
                 suggestion_action = MakeSuggestionAction()
                 end_game, moves_used = suggestion_action.execute(game, player)
-                break
+                return (end_game, moves_used)
             except InvalidActionException as e:
                 print(f"Suggestion error: {e}")
                 print("Please try your suggestion again.")
                 continue
             except Exception as e:
                 raise InvalidActionException(str(e))
-
-        # After a successful suggestion, allow the player to accuse or end
-        while True:
-            try:
-                resp = input("\nDo you want to make an accusation (y/n): ")
-                if resp.lower() == 'y':
-                    accusation_action = AccuseAction()
-                    end_game_accuse, moves_used_accuse = accusation_action.execute(game, player)
-                    return (end_game_accuse, moves_used_accuse)
-                elif resp.lower() == 'n':
-                    return (end_game, moves_used)
-                else:
-                    print("Please enter 'y' or 'n'.")
-            except Exception as e:
-                print(f"Error: {e}")
-                continue
 
 
 class DisplayBoardAction(PlayerAction):
@@ -125,7 +112,7 @@ class EnterRoomAction(PlayerAction):
             print(f"{player.get_colored_name()} has entered the {room_name}.")
             
             # Run the suggestion + optional-accuse flow using the shared helper
-            end_game, moves_used = self.suggestion_and_optional_accuse(game, player)
+            end_game, moves_used = self.suggestion(game, player)
             return (end_game, moves_used)
         except Exception as e:
             player.exit_room(player.get_previous_position())
@@ -228,8 +215,22 @@ class MakeSuggestionAction(PlayerAction):
             print(f"\n{refuting_player.get_colored_name()} showed a card to {player.get_colored_name()}.")
         else:
             print("\nNo one could refute the suggestion!")
-        
-        return (False, 0)
+
+        # After the suggestion, allow the suggesting player to optionally make an accusation
+        while True:
+            try:
+                resp = input("\nDo you want to make an accusation (y/n): ")
+                if resp.lower() == 'y':
+                    accusation_action = AccuseAction()
+                    end_game_accuse, moves_used_accuse = accusation_action.execute(game, player)
+                    return (end_game_accuse, moves_used_accuse)
+                elif resp.lower() == 'n':
+                    return (False, 0)
+                else:
+                    print("Please enter 'y' or 'n'.")
+            except Exception as e:
+                print(f"Error: {e}")
+                continue
 
 class AccuseAction(PlayerAction):
     '''Action to make an accusation.'''
@@ -360,7 +361,7 @@ class SecretPassageAction(PlayerAction):
         print(f"{player.get_colored_name()} has arrived in the {destination_room}.")
         
         # Run the suggestion + optional-accuse flow using the shared helper
-        end_game, moves_used = self.suggestion_and_optional_accuse(game, player)
+        end_game, moves_used = self.suggestion(game, player)
         return (end_game, moves_used)
         
         
