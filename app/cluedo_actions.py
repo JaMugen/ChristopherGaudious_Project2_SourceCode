@@ -22,6 +22,14 @@ class PlayerAction:
             Tuple of (should_end_game: bool, moves_used: int)
         '''
         raise NotImplementedError("Subclasses must implement execute()")
+    
+    def get_description(self):
+        '''Returns a description of what this action does.
+        
+        Returns:
+            str: Description of the action
+        '''
+        return "Perform an action"
 
     def suggestion(self, game, player):
         """Run the suggestion action with retry on recoverable errors.
@@ -53,6 +61,9 @@ class DisplayBoardAction(PlayerAction):
     def execute(self, game, player):
         game.board.display_board(game.get_players())
         return (False, 0)
+    
+    def get_description(self):
+        return "Display the game board with all player positions"
 
 
 class MoveAction(PlayerAction):
@@ -85,6 +96,9 @@ class MoveAction(PlayerAction):
             # Just print error for invalid actions
             print(f"Error: {e}")
             return (False, 0)
+    
+    def get_description(self):
+        return "Move your player in a direction (up, down, left, right)"
 
 
 
@@ -117,6 +131,9 @@ class EnterRoomAction(PlayerAction):
         except Exception as e:
             player.exit_room(player.get_previous_position())
             raise InvalidActionException(str(e))
+    
+    def get_description(self):
+        return "Enter a room and automatically make a suggestion"
 
 
 
@@ -168,6 +185,9 @@ class ExitRoomAction(PlayerAction):
             
         except ValueError:
             raise InvalidActionException("Please enter a valid number.")
+    
+    def get_description(self):
+        return "Exit the current room through a numbered door"
 
 
 
@@ -215,7 +235,7 @@ class MakeSuggestionAction(PlayerAction):
             print(f"\n{refuting_player.get_colored_name()} showed a card to {player.get_colored_name()}.")
         else:
             print("\nNo one could refute the suggestion!")
-
+        
         # After the suggestion, allow the suggesting player to optionally make an accusation
         while True:
             try:
@@ -231,6 +251,9 @@ class MakeSuggestionAction(PlayerAction):
             except Exception as e:
                 print(f"Error: {e}")
                 continue
+    
+    def get_description(self):
+        return "Make a suggestion in your current room (must be in a room)"
 
 class AccuseAction(PlayerAction):
     '''Action to make an accusation.'''
@@ -268,17 +291,29 @@ class AccuseAction(PlayerAction):
             print(f"\n{'=' * 80}")
             print("INCORRECT ACCUSATION!".center(80))
             print(f"{'=' * 80}")
-            player.eliminate()
+            print(f"\n{player.get_colored_name()} has been eliminated from the game!")
+            input("Press Enter to continue...")
+            
+            # Replace player with EliminatedPlayer instance
+            eliminated_player = game.replace_player_with_eliminated(player)
+            
             # Move eliminated player to Ballroom
-            player.enter_room("Ballroom")
-            game.board.place_player_in_room(player, "Ballroom")
+            eliminated_player.enter_room("Ballroom")
+            game.board.place_player_in_room(eliminated_player, "Ballroom")
             return (False, 0)  # Don't end game, but player is eliminated
+    
+    def get_description(self):
+        return "Make an accusation to win the game (eliminates you if wrong)"
+
 class ViewLogAction(PlayerAction):
     '''Action to view the suggestion log.'''
     
     def execute(self, game, player):
         game.display_suggestion_log()
         return (False, 0)
+    
+    def get_description(self):
+        return "View the log of all suggestions and refutations"
 
 
 
@@ -287,6 +322,9 @@ class EndTurnAction(PlayerAction):
     
     def execute(self, game, player):
         return (False, 0)  # Signal to break from turn loop
+    
+    def get_description(self):
+        return "End your current turn"
 
 
 
@@ -295,6 +333,9 @@ class EndGameAction(PlayerAction):
     
     def execute(self, game, player):
         return (True, 0)
+    
+    def get_description(self):
+        return "End the game immediately"
 
 
 
@@ -304,6 +345,9 @@ class ClearScreenAction(PlayerAction):
     def execute(self, game, player):
         game.clear_screen()
         return (False, 0)
+    
+    def get_description(self):
+        return "Clear the terminal screen"
 
 
 
@@ -313,6 +357,9 @@ class DisplayPlayersCardsAction(PlayerAction):
     def execute(self, game, player):
         game.display_players_cards()
         return (False, 0)
+    
+    def get_description(self):
+        return "[DEV] Display all players' cards"
 
 
 
@@ -322,6 +369,9 @@ class DisplaySolutionAction(PlayerAction):
     def execute(self, game, player):
         game.display_solution(game.get_solution())
         return (False, 0)
+    
+    def get_description(self):
+        return "[DEV] Display the solution to the mystery"
 
 
 
@@ -331,6 +381,19 @@ class ShowAvailableActionsAction(PlayerAction):
     def execute(self, game, player):
         game.print_available_actions()
         return (False, 0)
+    
+    def get_description(self):
+        return "Show the list of available actions"
+    
+class ShowCardsAction(PlayerAction):
+    '''Action to show the player's own cards.'''
+    
+    def execute(self, game, player):
+        player.show_cards()
+        return (False, 0)
+    
+    def get_description(self):
+        return "Show your own cards"
 
 
 
@@ -363,6 +426,9 @@ class SecretPassageAction(PlayerAction):
         # Run the suggestion + optional-accuse flow using the shared helper
         end_game, moves_used = self.suggestion(game, player)
         return (end_game, moves_used)
+    
+    def get_description(self):
+        return "Use a secret passage to travel between connected rooms"
         
         
 
