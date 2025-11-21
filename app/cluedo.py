@@ -5,19 +5,19 @@ try:
     from app.rules import Rules
     from app.exceptions import InvalidActionException, InvalidMoveException
     from app.board import Board
-    from app.player import Player
+    from app.player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
     from app.config import Config
     from app.cluedo_actions import (
         PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
         ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
         EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
         DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
-        SecretPassageAction
+        SecretPassageAction, ShowCardsAction
     )
 except ImportError:
     from rules import Rules
     from board import Board
-    from player import Player
+    from player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
     from config import Config
     from exceptions import InvalidActionException, InvalidMoveException
     from cluedo_actions import (
@@ -25,7 +25,7 @@ except ImportError:
         ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
         EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
         DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
-        SecretPassageAction
+        SecretPassageAction, ShowCardsAction
     )
 
 class Cluedo:
@@ -43,6 +43,7 @@ class Cluedo:
     ACTION_CLEAR_SCREEN = "clear"
     ACTION_ACCUSE = "accuse"
     ACTION_SECRET_PASSAGE = "secret"
+    ACTION_SHOW_CARDS = "show"
     
     # Actions that automatically end the turn
     ACTIONS_THAT_END_TURN = ["accuse", "suggest", "enter", "secret", "end"]
@@ -94,6 +95,7 @@ class Cluedo:
         self.action_factory.register_action("", ShowAvailableActionsAction)
         self.action_factory.register_action(self.ACTION_ACCUSE, AccuseAction)
         self.action_factory.register_action(self.ACTION_SECRET_PASSAGE, SecretPassageAction)
+        self.action_factory.register_action(self.ACTION_SHOW_CARDS, ShowCardsAction)
 
     def distribute_cards(self):
         '''Distributes the remaining cards equally among all players.'''
@@ -113,15 +115,17 @@ class Cluedo:
         while not self.get_end():
             player = self.get_current_player()
             
-            # Skip eliminated players' turns
-            if player.is_eliminated_player():
-                print(f"\n{player.get_colored_name()} is eliminated and skips their turn.")
+            # Skip players who cannot take turns (inactive or eliminated)
+            if not player.can_take_turn():
+                if player.is_eliminated_player():
+                    print(f"\n{player.get_colored_name()} is eliminated and skips their turn.")
+                else:
+                    print(f"\n{player.get_colored_name()} is inactive and skips their turn.")
                 self.next_turn()
                 continue
             
             self.end = self.play_turn(player)
             self.next_turn()
-    
     def get_end(self):
         '''Returns whether the game has ended.'''
         return self.end
@@ -143,16 +147,36 @@ class Cluedo:
         player_colors = self.config.get_player_colors()
         start_positions = self.config.get_player_start_positions()
         
+        print("\n=== PLAYER SETUP ===")
         for suspect in suspects:
-            player = Player(
-                name=suspect,
-                color=player_colors[suspect],
-                symbol=player_symbols[suspect],
-                start_position=start_positions[suspect]
-            )
-            self.players.append(player)
+            # Prompt whether each player is active
+            while True:
+                response = input(f"Is {suspect} active? (y/n): ").strip().lower()
+                if response == 'y':
+                    player = ActivePlayer(
+                        name=suspect,
+                        color=player_colors[suspect],
+                        symbol=player_symbols[suspect],
+                        start_position=start_positions[suspect]
+                    )
+                    self.players.append(player)
+                    print(f"{suspect} is set as ACTIVE.")
+                    break
+                elif response == 'n':
+                    player = InactivePlayer(
+                        name=suspect,
+                        color=player_colors[suspect],
+                        symbol=player_symbols[suspect],
+                        start_position=start_positions[suspect]
+                    )
+                    self.players.append(player)
+                    print(f"{suspect} is set as INACTIVE (can refute but won't take turns).")
+                    break
+                else:
+                    print("Please enter 'y' or 'n'.")
         
-        print(f"Created {len(self.players)} players for the game.")
+        print(f"\nCreated {len(self.players)} players for the game.")
+        print("=" * 40)
     
     def get_players(self):
         '''Returns the list of players.'''
@@ -171,6 +195,26 @@ class Cluedo:
         for player in self.players:
             player.display_info()
         print("===================\n")
+    
+    def replace_player_with_eliminated(self, player):
+        '''Replace a player with an EliminatedPlayer instance.
+        
+        Args:
+            player: The player to replace
+            
+        Returns:
+            The new EliminatedPlayer instance
+        '''
+        # Find player index
+        player_index = self.players.index(player)
+        
+        # Create eliminated player from existing player
+        eliminated = EliminatedPlayer.from_player(player)
+        
+        # Replace in players list
+        self.players[player_index] = eliminated
+        
+        return eliminated
 
     # Solution 
 
@@ -353,13 +397,16 @@ class Cluedo:
         shown_card = None
         
         # Check players clockwise starting from the next player
-        # Include eliminated players in refutation process
+        # Include all players who can refute (active, inactive, and eliminated)
         for i in range(1, len(self.players)):
             player_index = (suggester_index + i) % len(self.players)
             player = self.players[player_index]
             
-            status = " (eliminated)" if player.is_eliminated_player() else ""
-            input(f"\nPress enter to have {player.get_colored_name()}{status} check for refutation...")
+            # Skip players who cannot refute
+            if not player.can_refute():
+                continue
+            
+            input(f"\nPress enter to have {player.get_colored_name()} check for refutation...")
             # Check which cards this player has that match the suggestion
             matching_cards = []
             for card in [suggestion['suspect'], suggestion['weapon'], suggestion['room']]:
@@ -382,7 +429,8 @@ class Cluedo:
                 input(f"\nPress enter to reveal the card to {suggesting_player.get_colored_name()}...")
                 print(f"\n{suggesting_player.get_colored_name()} privately sees: {card_to_show}")
                 input("Press enter to continue...")
-                
+                input("Press Enter to continue...")
+                self.clear_screen()
                 refuting_player = player
                 shown_card = card_to_show
                 # Stop after first refutation
@@ -439,20 +487,17 @@ class Cluedo:
         print("\n" + "=" * 80)
 
 
-    def get_available_actions(self) -> list:
-        '''Returns a list of available actions for the player.'''
-        return {self.ACTION_MOVE: "Move player", self.ACTION_DISPLAY_BOARD: "Display board", 
-                 self.ACTION_ENTER_ROOM: "Enter room", self.ACTION_EXIT_ROOM: "Exit room", 
-                 self.ACTION_MAKE_SUGGESTION: "Make suggestion", self.ACTION_VIEW_LOG: "View suggestion log",
-                 self.ACTION_CLEAR_SCREEN: "Clear screen", self.ACTION_END_TURN: "End turn", self.ACTION_END_GAME: "End game",
-                 self.ACTION_SECRET_PASSAGE: "Use secret passage", self.ACTION_ACCUSE: "Make accusation"}
-    
     def print_available_actions(self) -> None:
-        '''Prints the available actions for the player.'''
-        actions = self.get_available_actions()
+        '''Prints the available actions for the player using descriptions from action classes.'''
         print("Available actions:")
-        for action, description in actions.items():
-            print(f"- {action}: {description}")
+        for action_name in self.action_factory.get_registered_actions():
+            if action_name:  # Skip empty string action
+                try:
+                    action = self.action_factory.create_action(action_name)
+                    description = action.get_description()
+                    print(f"- {action_name}: {description}")
+                except Exception:
+                    print(f"- {action_name}: (No description available)")
 
     def display_players_cards(self) -> None:
         '''Displays all players and their cards (for dev/testing purposes).'''
@@ -463,57 +508,3 @@ class Cluedo:
                 print(f"- {card}")
         print("================================\n")
 
-if __name__ == "__main__":
-    # Test the game initialization with players
-    game = Cluedo(True)
-    
-    # Display the board with legend
-    game.board.display_legend()
-    
-    print("\n=== INITIAL BOARD (All players in hallways) ===")
-    game.board.display_board(game.players)
-    
-    # Test moving players into rooms
-    print("\n\n=== TEST 1: MOVING PLAYERS INTO ROOMS ===")
-    print("Moving Miss Scarlet to Kitchen...")
-    game.board.place_player_in_room(game.players[0], "Kitchen")
-    
-    print("Moving Colonel Mustard to Ballroom...")
-    game.board.place_player_in_room(game.players[1], "Ballroom")
-    
-    print("Moving Mrs. White to Kitchen...")
-    game.board.place_player_in_room(game.players[2], "Kitchen")
-    
-    print("\n=== BOARD AFTER MOVING PLAYERS TO ROOMS ===")
-    print("(Notice old positions are now '.' again)")
-    game.board.display_board(game.players)
-    
-    # Test moving players in hallways
-    print("\n\n=== TEST 2: MOVING PLAYER IN HALLWAY ===")
-    print(f"Mr. Green starting position: {game.players[3].current_position}")
-    print("Moving Mr. Green from (14, 0) to (14, 1)...")
-    game.board.move_player(game.players[3], (14, 1))
-    print(f"Mr. Green new position: {game.players[3].current_position}")
-    
-    print("\n=== BOARD AFTER HALLWAY MOVE ===")
-    print("(Notice (14, 0) is now '.' again)")
-    game.board.display_board(game.players)
-    
-    # Test moving player from room to hallway
-    print("\n\n=== TEST 3: MOVING PLAYER FROM ROOM TO HALLWAY ===")
-    print("Moving Miss Scarlet from Kitchen to hallway position (5, 5)...")
-    game.board.move_player_to_hallway(game.players[0], (5, 5))
-    
-    print("\n=== FINAL BOARD STATE ===")
-    game.board.display_board(game.players)
-    
-    # Display all players
-    print("\n")
-    game.display_players()
-    game.display_cards(game.get_cards())
-    game.display_cards(game.get_removed_cards())
-
-    print("\nGenerating random Cluedo solutions:")
-    print("-" * 40)
-
-    game.display_solution(game.get_solution())
