@@ -8,7 +8,7 @@ except ImportError:
 
 
 class Player:
-    '''Represents a player in the Cluedo game.'''
+    '''Base class representing a player in the Cluedo game.'''
     
     def __init__(self, name, color, symbol, start_position):
         '''
@@ -101,7 +101,13 @@ class Player:
     def get_cards(self):
         '''Return list of cards held by player.'''
         return self.cards.copy()
-    
+    def show_cards(self):
+        '''Display the player's cards.'''
+        if not self.get_cards():
+            print(f"{self.get_colored_name()} has no cards.")
+        else:
+            print(f"{self.get_colored_name()}'s cards: {', '.join(self.get_cards())}")
+            
     def get_colored_name(self):
         '''Returns the player name with color formatting and reset.'''
         return f"{self.color}{self.name}{Style.RESET_ALL}"
@@ -196,22 +202,86 @@ class Player:
     def get_colored_symbol(self):
         '''Returns the player's symbol with color formatting and reset.'''
         return f"{self.color}{self.symbol}{Style.RESET_ALL}"
-
-if __name__ == "__main__":
-    # Test player creation and movement
-    player = Player(
-        name="Miss Scarlet",
-        color=Fore.RED,  # Red
-        symbol="S",
-        start_position=(0, 9)
-    )
     
-    player.display_info()
-    player.move('down')
-    print(f"After moving down: {player.current_position}")
-    player.move('right')
-    print(f"After moving right: {player.current_position}")
-    try:
-        player.move('invalid_direction')
-    except InvalidMoveException as e:
-        print(e)
+    def can_take_turn(self):
+        '''Returns whether this player can take turns.'''
+        return True
+    
+    def can_refute(self):
+        '''Returns whether this player can refute suggestions.'''
+        return True
+    
+    @classmethod
+    def _copy_state_from(cls, src, dst):
+        '''Copy runtime state from src player to dst player.'''
+        dst.current_position = src.current_position
+        dst.previous_position = src.previous_position
+        dst.current_room = src.current_room
+        dst.cards = list(src.cards)
+        dst.roll = src.roll
+        dst.is_active = src.is_active
+        dst.is_eliminated = src.is_eliminated
+
+
+class ActivePlayer(Player):
+    '''Represents an active player who takes turns and can refute.'''
+    
+    def __init__(self, name, color, symbol, start_position):
+        super().__init__(name, color, symbol, start_position)
+        self.is_active = True
+        self.is_eliminated = False
+    
+    def get_colored_name(self):
+        '''Returns the player name with color formatting (active).'''
+        return f"{self.color}{self.name}{Style.RESET_ALL}"
+
+
+class InactivePlayer(Player):
+    '''Represents an inactive player who cannot take turns but can refute.'''
+    
+    def __init__(self, name, color, symbol, start_position):
+        super().__init__(name, color, symbol, start_position)
+        self.is_active = False
+        self.is_eliminated = False
+    
+    def can_take_turn(self):
+        '''Inactive players do not take turns.'''
+        return False
+    
+    def can_refute(self):
+        '''Inactive players can still refute suggestions.'''
+        return True
+    
+    def get_colored_name(self):
+        '''Returns the player name with color formatting and [INACTIVE] tag.'''
+        return f"{self.color}{self.name} [INACTIVE]{Style.RESET_ALL}"
+
+
+class EliminatedPlayer(Player):
+    '''Represents an eliminated player who cannot take turns but can refute.'''
+    
+    def __init__(self, name, color, symbol, start_position):
+        super().__init__(name, color, symbol, start_position)
+        self.is_active = False
+        self.is_eliminated = True
+    
+    def can_take_turn(self):
+        '''Eliminated players do not take turns.'''
+        return False
+    
+    def can_refute(self):
+        '''Eliminated players can still refute suggestions.'''
+        return True
+    
+    def get_colored_name(self):
+        '''Returns the player name with color formatting and [ELIMINATED] tag.'''
+        return f"{self.color}{self.name} [ELIMINATED]{Style.RESET_ALL}"
+    
+    @classmethod
+    def from_player(cls, src):
+        '''Create an EliminatedPlayer from an existing player, preserving state.'''
+        dest = cls(src.name, src.color, src.symbol, src.start_position)
+        Player._copy_state_from(src, dest)
+        dest.is_eliminated = True
+        dest.is_active = False
+        return dest
