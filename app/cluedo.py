@@ -5,7 +5,7 @@ try:
     from app.rules import Rules
     from app.exceptions import InvalidActionException, InvalidMoveException
     from app.board import Board
-    from app.player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
+    from app.player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer, AIPlayer
     from app.config import Config
     from app.cluedo_actions import (
         PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
@@ -17,7 +17,7 @@ try:
 except ImportError:
     from rules import Rules
     from board import Board
-    from player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
+    from player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer, AIPlayer
     from config import Config
     from exceptions import InvalidActionException, InvalidMoveException
     from cluedo_actions import (
@@ -124,7 +124,11 @@ class Cluedo:
                 self.next_turn()
                 continue
             
-            self.end = self.play_turn(player)
+            # Check if player is AI and call appropriate turn method
+            if isinstance(player, AIPlayer):
+                self.end = self.ai_turn(player)
+            else:
+                self.end = self.play_turn(player)
             self.next_turn()
     def get_end(self):
         '''Returns whether the game has ended.'''
@@ -174,6 +178,11 @@ class Cluedo:
                     break
                 else:
                     print("Please enter 'y' or 'n'.")
+        
+        # Add AI player for testing
+        ai = AIPlayer("Mr. Green (AI)", player_colors["Mr. Green"], player_symbols["Mr. Green"], "Lounge")
+        self.players.append(ai)
+        print("Mr. Green (AI) has been added as a player.")
         
         print(f"\nCreated {len(self.players)} players for the game.")
         print("=" * 40)
@@ -355,6 +364,15 @@ class Cluedo:
         self.clear_screen()
         return False
 
+    def ai_turn(self, player: AIPlayer) -> bool:
+        '''Handles the AI player's turn with error handling.'''
+        try:
+            return player.play_turn(self)
+        except Exception as e:
+            print(f"Error during AI turn: {e}")
+            # On error, skip the AI's turn
+            return False
+
     def get_previous_moves(self) -> list:
         '''Returns the list of previous moves in the current turn.'''
         return self.previous_moves
@@ -507,4 +525,5 @@ class Cluedo:
             for card in player.get_cards():
                 print(f"- {card}")
         print("================================\n")
+
 
