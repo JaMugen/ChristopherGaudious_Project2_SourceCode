@@ -9,17 +9,25 @@ from app.board import Board
 class validation:
     
     @staticmethod
-    def validate_position(position, board: 'Board', previous_moves: list) -> bool:
-        '''Validate if the given position is within the board boundaries.'''
+    def validate_position(position, board: 'Board', previous_moves: list, *, allow_doors: bool = False, allow_occupied: bool = False) -> bool:
+        '''Validate if the given position is within the board boundaries.
+        
+        Args:
+            position: (row, col) tuple
+            board: Board instance
+            previous_moves: List of positions already visited
+            allow_doors: If True, door positions are allowed (for pathfinding)
+            allow_occupied: If True, occupied positions are allowed (for pathfinding)
+        '''
         rows, cols = board.get_dimensions()
         row, col = position
         if not (0 <= row < rows and 0 <= col < cols):
             raise InvalidMoveException(f"Position {position} is out of board boundaries.")
         if board.is_wall(position):
             raise InvalidMoveException(f"Position {position} is a wall and cannot be moved to.")
-        if board.is_occupied(position):
+        if not allow_occupied and board.is_occupied(position):
             raise InvalidMoveException(f"Position {position} is already occupied by another player.")
-        if board.is_door(position):
+        if not allow_doors and board.is_door(position):
             raise InvalidMoveException(f"Position {position} is a door and cannot be moved to directly.")
         if position in previous_moves:
             raise InvalidMoveException(f"Position {position} has already been visited in the last move.")
