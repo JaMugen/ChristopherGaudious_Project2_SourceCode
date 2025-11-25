@@ -50,21 +50,18 @@ def get_possible_actions(state: Tuple[Optional[str], Optional[Tuple[int, int]]],
             new_row, new_col = row + dr, col + dc
             new_pos = (new_row, new_col)
 
-            # Use validation to check bounds, walls, and occupancy
-            # Allow doors for pathfinding (we'll detect and handle doors separately)
-            # Do NOT allow occupied positions - AI cannot plan path through other players
+
             try:
                 validation.validate_position(new_pos, game.board, [], allow_doors=True, allow_occupied=False)
             except InvalidMoveException:
-                # Invalid position (out of bounds, wall, occupied, etc.)
+             
                 continue
             
             cell = game.board.board[new_row][new_col]
-            
-            # Can move to hallway
+
             if cell == '.':
                 next_state = (None, new_pos)
-                # Include target position in action for navigation
+       
                 possible_actions.append((next_state, f'move {new_row} {new_col}'))
             
             # Can enter room through door
@@ -117,7 +114,7 @@ def BFS(start_room: Optional[str], start_position: Optional[Tuple[int, int]],
         current_node = q.get()
         current_room, current_pos = current_node.state
         
-        # Check if we reached target
+
         if current_room == target_room:
             temp_actions = []
             node = current_node
@@ -132,5 +129,5 @@ def BFS(start_room: Optional[str], start_position: Optional[Tuple[int, int]],
    
         expand_state(current_node, visited, q, game)
     
-    # No path found
+
     return None 
