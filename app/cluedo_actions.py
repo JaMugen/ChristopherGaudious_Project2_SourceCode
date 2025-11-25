@@ -226,13 +226,16 @@ class MakeSuggestionAction(PlayerAction):
         game.board.place_weapon_in_room(weapon, room)
         
         # Start refutation process clockwise from the suggesting player
-        refuting_player, shown_card = game.refute_suggestion(player, suggestion)
+        refuting_players, shown_card = game.refute_suggestion(player, suggestion)
+        
+        # Notify AI observers about the suggestion and refutation
+        game.notify_ai_observers(player, suggestion, refuting_players, shown_card)
         
         # Log the suggestion and refutation
-        game.log_suggestion(player, suggestion, refuting_player, shown_card)
+        game.log_suggestion(player, suggestion, refuting_players[-1] , shown_card)
         
-        if refuting_player:
-            print(f"\n{refuting_player.get_colored_name()} showed a card to {player.get_colored_name()}.")
+        if refuting_players:
+            print(f"\n{refuting_players[-1].get_colored_name()} showed a card to {player.get_colored_name()}.")
         else:
             print("\nNo one could refute the suggestion!")
         
@@ -374,7 +377,16 @@ class DisplaySolutionAction(PlayerAction):
         return "[DEV] Display the solution to the mystery"
 
 
-
+class DisplayAIKnowledgeAction(PlayerAction):
+    '''Action to display AI players' knowledge (dev/testing).'''
+    
+    def execute(self, game, player):
+        game.display_ai_knowledge()
+        return (False, 0)
+    
+    def get_description(self):
+        return "[DEV] Display AI players' knowledge about the game"
+    
 class ShowAvailableActionsAction(PlayerAction):
     '''Action to show available actions.'''
     
