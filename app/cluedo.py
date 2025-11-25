@@ -550,6 +550,29 @@ class Cluedo:
         
         print("\n" + "=" * 80)
 
+    def handle_accusation(self, player: Player, accusation: dict) -> bool:
+        if self.check_accusation(accusation):
+            print(f"\n{'=' * 80}")
+            print("CORRECT ACCUSATION!".center(80))
+            print(f"{'=' * 80}")
+            print(f"\n{player.get_colored_name()} has won the game!")
+            print("\nThe solution was:")
+            self.display_solution(self.get_solution())
+            return (True, 0)  # End game
+        else:
+            print(f"\n{'=' * 80}")
+            print("INCORRECT ACCUSATION!".center(80))
+            print(f"{'=' * 80}")
+            print(f"\n{player.get_colored_name()} has been eliminated from the game!")
+            input("Press Enter to continue...")
+            
+            # Replace player with EliminatedPlayer instance
+            eliminated_player = self.replace_player_with_eliminated(player)
+            
+            # Move eliminated player to Ballroom
+            eliminated_player.enter_room("Ballroom")
+            self.board.place_player_in_room(eliminated_player, "Ballroom")
+            return (False, 0)  # Don't end game, but player is eliminated
 
     def print_available_actions(self) -> None:
         '''Prints the available actions for the player using descriptions from action classes.'''
