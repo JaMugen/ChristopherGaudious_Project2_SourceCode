@@ -494,7 +494,7 @@ class Cluedo:
             shown_card: The card that was shown (only visible to suggester)
         '''
         for player in self.players:
-            # Skip non-AI players and the suggester (they already know)
+    
             if not isinstance(player, AIPlayer) or player is suggester:
                 continue
             
