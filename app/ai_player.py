@@ -1,4 +1,6 @@
 import random
+from collections import deque
+import re
 from threading import TIMEOUT_MAX
 import time
 from typing import List, Optional, Tuple, Dict, Set, Union
@@ -6,6 +8,7 @@ from typing import List, Optional, Tuple, Dict, Set, Union
 from colorama import Style
 
 from app.player import Player
+from app.search import BFS
 
 
 class AIPlayer(Player):
@@ -15,10 +18,11 @@ class AIPlayer(Player):
     - builds knowledge from observations of suggestions and refutations.
     """
     MAX_CARDS = 3 
-    TIME_BUFFER = 2
+    TIME_BUFFER = 1
+
     
     def __init__(self, name: str, color: str, symbol: str, start_position, game) -> None:
-        super().__init__(name, color, symbol, (0, 0))  
+        super().__init__(name, color, symbol, start_position)  
         self.known_cards: Dict[str, Optional[str]] = {}  # card -> owner name (or None if seen but unknown)
         self.known_count: Dict[str, int] = {}    # owner name -> count of known cards held
         self.suggestions_made = []          # history of suggestions AI made
@@ -26,8 +30,11 @@ class AIPlayer(Player):
         self.pref_room = None               # room AI prefers / currently "in"
         self.beliefs: Dict[str, Set[str]] = {}  # card -> possible suspects holding it
         self.solution_candidates: Set[str] = set() # cards likely in solution (no suspects remain)
-        self.current_room = start_position
-        # Note: initialize_beliefs(game) must be called AFTER cards are distributed
+        self.previous_path = []            # last path taken 
+        if isinstance(start_position, tuple):
+            self.current_room = None
+        else:
+            self.current_room = start_position
 
     def suggest(self, game) -> dict:
         """Create a suggestion from beliefs by picking cards with the least amount of possible holders.
@@ -73,6 +80,9 @@ class AIPlayer(Player):
 
         return suggestion
 
+    def pick_card_alphabetically(self, card_list: List[str]) -> str:
+        """Pick the alphabetically first card from the given list."""
+        return sorted(card_list)[0]
 
     
     def pick_card_with_min_holders(self, card_list: List[str]) -> str:
@@ -83,9 +93,9 @@ class AIPlayer(Player):
                 candidates_in_beliefs.append(card)
         if candidates_in_beliefs:
             best_candidates = self.get_best_candidates(candidates_in_beliefs)
-            return random.choice(best_candidates)
+            return self.pick_card_alphabetically(best_candidates)
         else:
-            return random.choice(card_list)
+            return self.pick_card_alphabetically(card_list)
 
     def get_best_candidates(self, candidates_in_beliefs: List[str]) -> List[str]:
         """Return the subset of candidates that have the minimum number
@@ -108,13 +118,60 @@ class AIPlayer(Player):
             if len(self.beliefs.get(card, [])) == min_holders:
                 best_candidates.append(card)
         return best_candidates
+    
+    def pick_closest_room_with_min_holders(self, room_list: List[str], game) -> Tuple[Optional[List[str]], str]:
+        
+        skip = False
+        for card in self.solution_candidates:
+            if card in game.rules.get_rooms():
+                skip = True
+
+        candidates_in_beliefs = []
+        for room in room_list:
+            if room in self.beliefs:
+                candidates_in_beliefs.append(room)
+        
+        if candidates_in_beliefs and not skip:
+            best_candidates = self.get_best_candidates(candidates_in_beliefs)
+        else:
+            best_candidates = room_list
+        
+        #if room is already in solution just chose closest room
+
+            
+        # If only one candidate, return its path and name
+        if len(best_candidates) == 1:
+            single = best_candidates[0]
+            p = BFS(self.current_room, self.current_position, single, game)
+            return (p, single)
+        
+        closest_room = None
+        min_path_length = None
+        chosen_path = None
+        
+        for room in best_candidates:
+            path = BFS(self.current_room, self.current_position, room, game)
+            if path is not None:
+                path_length = len(path)
+                if min_path_length is None or path_length < min_path_length:
+                    min_path_length = path_length
+                    closest_room = room
+                    chosen_path = path
+
+        if closest_room is None:
+            # No path to any candidate; pick alphabetically and return no path
+            return (None, self.pick_card_alphabetically(best_candidates))
+        
+        return (chosen_path, closest_room)
         
     def choose_card_to_show(self, matching_cards: List[str], to_player: 'Player') -> str:
         """When asked to show a card, choose a card to reveal.
            Strategy: show a random matching card, prefer cards already known by many (optional).
         """
-        # Prefer to show a card that is least informative: pick one AI already has seen or random
-        seen_matches = [c for c in matching_cards if c in self.known_cards]
+        seen_matches = []
+        for card in matching_cards:
+            if card in self.known_cards:
+                seen_matches.append(card)
         if seen_matches:
             return random.choice(seen_matches)
         return random.choice(matching_cards)
@@ -143,7 +200,7 @@ class AIPlayer(Player):
         for refuter in refuters_list:
             refuter_names.append(refuter.get_name())
 
-        # Determine whether an actual refutation happened: a card was shown.
+     
         refutation_happened = shown_card is not None and len(refuters_list) > 0
 
         final_refuter = None
@@ -158,7 +215,8 @@ class AIPlayer(Player):
             "refuter": final_refuter,
         })
 
-        if shown_card and suggester is self and final_refuter:
+      
+        if suggester is self and shown_card and final_refuter:
             self.mark_card_seen(shown_card, owner=final_refuter)
 
         if refutation_happened:
@@ -198,10 +256,85 @@ class AIPlayer(Player):
                         del self.beliefs[card]
             
 
-    def hop_to_room(self, room_name: str, game) -> None:
-        """Place AI directly into a room (use board/ player room helpers).
-           This does not use normal player movement; it uses board.place_player_in_room.
+
+    
+    def navigate_to_room(self, target_room: str, game, roll_dice, path) -> bool:
+        """Execute movement actions to reach target room using BFS pathfinding.
+        
+        Returns True if successfully reached target room, False otherwise.
         """
+        
+        # If no precomputed path provided, compute one now
+        if path is None:
+            path = BFS(self.current_room, self.current_position, target_room, game)
+            if path is None:
+                print(f"{self.get_colored_name()} cannot find path to {target_room}")
+                return False
+
+        print(f"{self.get_colored_name()} navigating to {target_room}")
+        
+        for action in path:
+            if roll_dice <= 0 and not action.startswith('enter '):
+                break
+            if action == 'secret':
+                # Use secret passage
+                secret_passages = game.rules.get_secret_passages()
+                if self.current_room in secret_passages:
+                    dest_room = secret_passages[self.current_room]
+                    self.current_room = dest_room
+                    self.current_position = None
+                    game.board.place_player_in_room(self, dest_room)
+                    self.player_print(f"  → Used secret passage to {dest_room}")
+                    break
+                    
+            elif action.startswith('exit '):
+                # Parse room name and exit position from action
+                parts = action.split()
+                room_name = parts[1]
+                exit_row = int(parts[2])
+                exit_col = int(parts[3])
+                exit_pos = (exit_row, exit_col)
+                
+                # Exit to the specified position
+                self.exit_room(exit_pos)
+                game.board.move_player_to_hallway(self, exit_pos)
+                self.player_print(f"  → Exited {room_name} to hallway position {exit_pos}")
+                        
+            elif action.startswith('move '):
+                # Parse target position from action
+                parts = action.split()
+                target_row = int(parts[1])
+                target_col = int(parts[2])
+                target_pos = (target_row, target_col)
+                
+            
+                self.move_to(target_pos)
+                game.board.move_player(self)
+                self.player_print(f"  → Moved to hallway position {target_pos}")
+                roll_dice -= 1
+
+                
+            elif action.startswith('enter '):
+                # Enter a room
+                room_name = action.split(' ', 1)[1]
+                self.enter_room(room_name)
+                game.board.place_player_in_room(self, room_name)
+                self.player_print(f"  → Entered {room_name}")
+                break
+        
+        return self.current_room == target_room
+    
+    def hop_to_room(self, room_name: str, game) -> None:
+        """Navigate to target room using BFS pathfinding.
+        Falls back to direct placement if pathfinding fails.
+        """
+        # Attempt to find a path and navigate using a very large roll allowance
+        path = BFS(self.current_room, self.current_position, room_name, game)
+        if self.navigate_to_room(room_name, game, 9999, path):
+            return
+        
+        # Fallback: direct placement
+        print(f"{self.get_colored_name()} using direct placement to {room_name}")
         game.board.place_player_in_room(self, room_name)
         self.current_room = room_name
     
@@ -346,40 +479,56 @@ class AIPlayer(Player):
                 candidate_rooms.add(card)
         return candidate_suspects, candidate_weapons, candidate_rooms
     
+    def player_print(self, print_statement: str) -> None:
+        print(print_statement)
+        time.sleep(self.TIME_BUFFER)
+        return
+
     def play_turn(self, game) -> bool:
         """Execute the AI player's turn.
         """
         # Choose target room using the helper that prefers fewest holders
+        self.player_print(f"\nIt's {self.get_colored_name()}'s turn!")
+        roll_dice = self.roll_die()
+        self.player_print(f"{self.get_colored_name()} rolled a {roll_dice}.")
+        self.player_print(f"{self.get_colored_name()} is deciding on a target room...")
         rooms = game.rules.get_rooms()
-        target_room = self.pick_card_with_min_holders(rooms)
+        path, target_room = self.pick_closest_room_with_min_holders(rooms, game)
 
-        # Move to chosen room
-        self.hop_to_room(target_room, game)
-        print(f"\nIt's {self.get_colored_name()}'s turn!")
-        time.sleep(self.TIME_BUFFER) 
-        # Make suggestion (suspect/weapon chosen by beliefs; room is current)
-        print(f"\n{self.get_colored_name()} is making a suggestion...")
-        suggestion = self.suggest(game)
-        self.observe_suggestion(self, suggestion)
 
-        # Run refutation using game logic
-        refuting_players, shown_card = game.refute_suggestion(self, suggestion)
-        self.observe_refutation(self, suggestion, refuting_players, shown_card)
-        
-        # game.notify_ai_observers(self, suggestion, refuting_player, shown_card)
-        
-        # Log suggestion and refutation
-        game.log_suggestion(self, suggestion, refuting_players[-1], shown_card)
-        
-        # Make accusation if we have exactly 3 solution candidates (one of each type)
+        if not self.should_accuse(game):
+            
+            if self.current_room != target_room:
+                self.navigate_to_room(target_room, game, roll_dice, path)
+                self.previous_path = path if path else None
+            
+            if not self.current_room:
+                self.player_print(f"{self.get_colored_name()} ends turn.")
+                return False
+            target_room = self.current_room if self.current_room else target_room
+            # Make suggestion (suspect/weapon chosen by beliefs; room is current)
+            
+            suggestion = self.suggest(game)
+            self.observe_suggestion(self, suggestion)
+            self.player_print(f"{self.get_colored_name()} suggests: {suggestion}")
+            # Run refutation using game logic
+            refuting_players, shown_card = game.refute_suggestion(self, suggestion)
+            self.observe_refutation(self, suggestion, refuting_players, shown_card)
+            
+            # game.notify_ai_observers(self, suggestion, refuting_player, shown_card)
+            
+            # Log suggestion and refutation
+            game.log_suggestion(self,suggestion, refuting_players[-1], shown_card)
+            
+            # Make accusation if we have exactly 3 solution candidates (one of each type)
         if self.should_accuse(game):
             accusation = self.accuse(game)
-            print(f"\n{self.get_colored_name()} is making an accusation: {accusation}")
-            time.sleep(self.TIME_BUFFER)
+            self.player_print(f"\n{self.get_colored_name()} is making an accusation: {accusation}")
             return game.handle_accusation(self, accusation)
 
         return False
 
+    
     def get_colored_name(self) -> str:
         tag = "[AI]"
         try:
@@ -392,50 +541,95 @@ class AIPlayer(Player):
         print(f"\n=== AI Player Knowledge: {self.get_colored_name()} ===")
 
         # Known cards (cards the AI has privately seen or holds)
+        print("\nKnown cards:")
         if self.known_cards:
-            known_list = []
             for card, owner in sorted(self.known_cards.items()):
                 if owner:
-                    known_list.append(f"{card} ({owner})")
+                    print(f"  - {card} ({owner})")
                 else:
-                    known_list.append(f"{card} (seen)")
-            print("Known cards:", ", ".join(known_list))
+                    print(f"  - {card} (seen)")
         else:
-            print("Known cards: None")
+            print("  - None")
 
         # Belief map
         print("\nBeliefs (card: possible suspects):")
         if self.beliefs:
             for card in sorted(self.beliefs.keys()):
                 suspects = sorted(self.beliefs[card]) if self.beliefs[card] else []
-                print(f" - {card}: {', '.join(suspects) if suspects else 'none'}")
+                if suspects:
+                    print(f"  - {card}: ", end="")
+                    for i, suspect in enumerate(suspects):
+                        if i > 0:
+                            print(", ", end="")
+                        print(suspect, end="")
+                    print() 
+                else:
+                    print(f"  - {card}: (none)")
         else:
-            print(" - (no tracked beliefs)")
+            print("  - (no tracked beliefs)")
 
         # Solution candidates
-        candidates = sorted(self.solution_candidates) if self.solution_candidates else []
-        print("\nSolution candidates (no suspects):", ", ".join(candidates) if candidates else "None")
+        print("\nSolution candidates (no suspects):")
+        if self.solution_candidates:
+            print("  - ", end="")
+            for i, card in enumerate(sorted(self.solution_candidates)):
+                if i > 0:
+                    print(", ", end="")
+                print(card, end="")
+            print()  
+        else:
+            print("  - None")
 
         # Suggestions made
         print("\nSuggestions made:")
         if self.suggestions_made:
             for s in self.suggestions_made:
-                print(" -", s)
+                suggester = s.get('suggester', 'Unknown')
+                suspect = s.get('suspect', '?')
+                weapon = s.get('weapon', '?')
+                room = s.get('room', '?')
+                print(f"  - {suggester}: {suspect}, {weapon}, {room}")
         else:
-            print(" - None")
+            print("  - None")
 
         # Refutation history
         print("\nRefutation history (observed events):")
         if self.refutation_history:
             for r in self.refutation_history:
-                print(" -", r)
+                suggester = r.get('suggester', 'Unknown')
+                suggestion = r.get('suggestion', {})
+                suspect = suggestion.get('suspect', '?')
+                weapon = suggestion.get('weapon', '?')
+                room = suggestion.get('room', '?')
+                refuter = r.get('refuter', 'None')
+                print(f"  - {suggester} suggested ({suspect}, {weapon}, {room}) → refuted by {refuter}")
         else:
-            print(" - None")
+            print("  - None")
+
+        print("\nPrevious path taken:")
+        if self.previous_path:
+            print("  - ", end="")
+            for i, action in enumerate(self.previous_path):
+                if i > 0:
+                    print(" → ", end="")
+                print(action, end="")
+            print()  
+        else:
+            print("  - None")
 
         # Current location and hand
-        print("\nCurrent room:", self.current_room)
-        print("Current position:", self.current_position)
+        print("\nCurrent room:", self.current_room if self.current_room else "(in hallway)")
+        print("Current position:", self.current_position if self.current_position else "(in room)")
+        
         hand = self.get_cards()
-        print("Cards in hand:", ", ".join(hand) if hand else "None")
+        if hand:
+            print("Cards in hand: ", end="")
+            for i, card in enumerate(hand):
+                if i > 0:
+                    print(", ", end="")
+                print(card, end="")
+            print()  
+        else:
+            print("Cards in hand: None")
 
-        print("================================\n")
+        print("\n================================\n")
