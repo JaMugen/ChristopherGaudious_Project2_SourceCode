@@ -1,14 +1,9 @@
 import random
-from re import M, S
-from tracemalloc import start
 from typing import List, Optional, Tuple, Dict, Set, Union
 
 from colorama import Style
 
-try:
-    from app.player import Player
-except ImportError:
-    from player import Player
+from app.player import Player
 
 
 class AIPlayer(Player):

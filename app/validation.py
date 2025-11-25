@@ -2,13 +2,9 @@
 from app import cluedo
 from app.player import Player
 
-
-try:
-    from app.exceptions import InvalidActionException, InvalidMoveException
-    from app.config import Config
-    from app.board import Board
-except ImportError:
-    from exceptions import InvalidActionException, InvalidMoveException
+from app.exceptions import InvalidActionException, InvalidMoveException
+from app.config import Config
+from app.board import Board
 
 class validation:
     

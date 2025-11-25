@@ -1,34 +1,20 @@
 import random
 import os
 
-try:
-    from app.rules import Rules
-    from app.exceptions import InvalidActionException, InvalidMoveException
-    from app.board import Board
-    from app.player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
-    from app.ai_player import AIPlayer
-    from app.config import Config
-    from app.cluedo_actions import (
-        PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
-        ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
-        EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
-        DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
-        SecretPassageAction, ShowCardsAction, DisplayAIKnowledgeAction
-    )
-except ImportError:
-    from rules import Rules
-    from board import Board
-    from player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
-    from ai_player import AIPlayer
-    from config import Config
-    from exceptions import InvalidActionException, InvalidMoveException
-    from cluedo_actions import (
-        PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
-        ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
-        EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
-        DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
-        SecretPassageAction, ShowCardsAction, DisplayAIKnowledgeAction
-    )
+from app.rules import Rules
+from app.exceptions import InvalidActionException, InvalidMoveException
+from app.board import Board
+from app.player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
+from app.ai_player import AIPlayer
+from app.config import Config
+from app.cluedo_actions import (
+    PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
+    ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
+    EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
+    DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
+    SecretPassageAction, ShowCardsAction, DisplayAIKnowledgeAction
+)
+
 
 class Cluedo:
     '''Main class to run the Cluedo game.'''

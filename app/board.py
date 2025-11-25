@@ -1,9 +1,5 @@
-try:
-    from app.rules import Rules
-    from app.config import Config
-except ImportError:
-    from rules import Rules
-    from config import Config
+from app.rules import Rules
+from app.config import Config
 from colorama import init, Style
 
 # Initialize colorama for cross-platform colored output

@@ -3,10 +3,7 @@ from typing import List, Optional, Tuple, Dict, Set, Union
 from webbrowser import get
 
 from colorama import Style
-try:
-    from app.exceptions import InvalidMoveException, InvalidActionException
-except ImportError:
-    from exceptions import InvalidMoveException, InvalidActionException
+from app.exceptions import InvalidMoveException, InvalidActionException
 
 
 class Player:

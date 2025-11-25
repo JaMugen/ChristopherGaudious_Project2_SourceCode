@@ -1,11 +1,7 @@
 '''Factory pattern for cluedo actions (renamed from player_actions).'''
 
-try:
-    from app.exceptions import InvalidActionException, InvalidMoveException
-    from app.validation import validation
-except ImportError:
-    from exceptions import InvalidActionException, InvalidMoveException
-    from validation import validation
+from app.exceptions import InvalidActionException, InvalidMoveException
+from app.validation import validation
 
 
 class PlayerAction:
