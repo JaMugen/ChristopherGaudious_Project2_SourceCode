@@ -118,6 +118,45 @@ class Board:
         room_layouts = self.get_room_layouts()
         return room_layouts.get(room_name)
 
+    def get_exit_positions(self, room_name):
+        '''Returns the absolute board positions where a player exits when leaving a room.
+        
+        Args:
+            room_name: Name of the room
+            
+        Returns:
+            list: List of (row, col) tuples representing exit positions on the board.
+                  Returns empty list if room not found.
+        '''
+        room_layout = self.get_room_layout(room_name)
+        if not room_layout:
+            return []
+        
+        exit_offsets = room_layout.get('exit_offsets', [])
+        room_pos = room_layout['position']
+        
+        exit_positions = []
+        for offset in exit_offsets:
+            exit_row = room_pos[0] + offset[0]
+            exit_col = room_pos[1] + offset[1]
+            exit_positions.append((exit_row, exit_col))
+        
+        return exit_positions
+    
+    def get_door_locations(self, room_name):
+        '''Returns the door locations for a given room.'''
+        room_layout = self.get_room_layout(room_name)
+        if room_layout:
+            door_offsets = room_layout['door_locations']
+            room_pos = room_layout['position']
+            door_positions = []
+            for offset in door_offsets:
+                door_row = room_pos[0] + offset[0]
+                door_col = room_pos[1] + offset[1]
+                door_positions.append((door_row, door_col))
+            return door_positions
+        return []
+
     def move_player_on_board(self):
         "''Moves a player on the board.'''"
 
@@ -444,7 +483,7 @@ class Board:
             door_positions = [(room_pos[0] + offset[0], room_pos[1] + offset[1]) for offset in door_offsets]
             return door_positions
         return []
-            
+    
 if __name__ == "__main__":
     board = Board()
     board.display_legend()
