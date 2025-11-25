@@ -34,7 +34,7 @@ To run the project run the main.py within the virtual environment
 python main.py
 ```
 
-# Build: Deduction
+# Build: Movement
 
-Current build on this branch has a singular AI player with deductive capabilities. AI will hop between rooms to make suggestions.
+AI player can now move along the board toward a room.
 

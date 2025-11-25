@@ -160,7 +160,7 @@ class Cluedo:
                     name=f"{suspect}",
                     color=player_colors[suspect],
                     symbol=player_symbols[suspect],
-                    start_position="Ballroom",
+                    start_position=start_positions[suspect],
                     game=self
                 )
                 self.players.append(ai)
@@ -498,10 +498,9 @@ class Cluedo:
             if not isinstance(player, AIPlayer) or player is suggester:
                 continue
             
-            # AI observers see the suggestion but not the actual card shown
-            # They only know who refuted and who passed
+         
             player.observe_suggestion(suggester, suggestion)
-            player.observe_refutation(suggester, suggestion, refuters, shown_card=None)
+            player.observe_refutation(suggester, suggestion, refuters, shown_card=shown_card)
     
     def log_suggestion(self, suggesting_player: Player, suggestion: dict, refuting_player: Player, shown_card: str) -> None:
         '''Logs a suggestion and its refutation to the game log.
