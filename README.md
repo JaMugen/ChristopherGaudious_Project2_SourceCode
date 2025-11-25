@@ -34,3 +34,7 @@ To run the project run the main.py within the virtual environment
 python main.py
 ```
 
+# Build: Deduction
+
+Current build on this branch has a singular AI player with deductive capabilities. AI will hop between rooms to make suggestions.
+
