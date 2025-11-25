@@ -282,28 +282,7 @@ class AccuseAction(PlayerAction):
         print(f"\n{player.get_colored_name()} accuses: {suspect} with the {weapon} in the {room}")
         
         # Check if the accusation matches the solution
-        if game.check_accusation(accusation):
-            print(f"\n{'=' * 80}")
-            print("CORRECT ACCUSATION!".center(80))
-            print(f"{'=' * 80}")
-            print(f"\n{player.get_colored_name()} has won the game!")
-            print("\nThe solution was:")
-            game.display_solution(game.get_solution())
-            return (True, 0)  # End game
-        else:
-            print(f"\n{'=' * 80}")
-            print("INCORRECT ACCUSATION!".center(80))
-            print(f"{'=' * 80}")
-            print(f"\n{player.get_colored_name()} has been eliminated from the game!")
-            input("Press Enter to continue...")
-            
-            # Replace player with EliminatedPlayer instance
-            eliminated_player = game.replace_player_with_eliminated(player)
-            
-            # Move eliminated player to Ballroom
-            eliminated_player.enter_room("Ballroom")
-            game.board.place_player_in_room(eliminated_player, "Ballroom")
-            return (False, 0)  # Don't end game, but player is eliminated
+        return game.handle_accusation(player, accusation)
     
     def get_description(self):
         return "Make an accusation to win the game (eliminates you if wrong)"
