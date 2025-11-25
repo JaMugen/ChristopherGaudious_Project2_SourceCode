@@ -1,4 +1,6 @@
 import random
+from threading import TIMEOUT_MAX
+import time
 from typing import List, Optional, Tuple, Dict, Set, Union
 
 from colorama import Style
@@ -12,7 +14,8 @@ class AIPlayer(Player):
     - hops between rooms by using board.place_player_in_room / player.enter_room semantics,
     - builds knowledge from observations of suggestions and refutations.
     """
-    MAX_CARDS = 3  
+    MAX_CARDS = 3 
+    TIME_BUFFER = 2
     
     def __init__(self, name: str, color: str, symbol: str, start_position, game) -> None:
         super().__init__(name, color, symbol, (0, 0))  
@@ -352,8 +355,10 @@ class AIPlayer(Player):
 
         # Move to chosen room
         self.hop_to_room(target_room, game)
-
+        print(f"\nIt's {self.get_colored_name()}'s turn!")
+        time.sleep(self.TIME_BUFFER) 
         # Make suggestion (suspect/weapon chosen by beliefs; room is current)
+        print(f"\n{self.get_colored_name()} is making a suggestion...")
         suggestion = self.suggest(game)
         self.observe_suggestion(self, suggestion)
 
@@ -370,6 +375,7 @@ class AIPlayer(Player):
         if self.should_accuse(game):
             accusation = self.accuse(game)
             print(f"\n{self.get_colored_name()} is making an accusation: {accusation}")
+            time.sleep(self.TIME_BUFFER)
             return game.handle_accusation(self, accusation)
 
         return False

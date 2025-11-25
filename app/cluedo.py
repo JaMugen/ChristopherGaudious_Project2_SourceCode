@@ -1,5 +1,7 @@
 import random
+import time
 import os
+from re import A
 
 from app.rules import Rules
 from app.exceptions import InvalidActionException, InvalidMoveException
@@ -42,7 +44,7 @@ class Cluedo:
     DEV_INPUT_DISPLAY_SOLUTIONS_CARDS = "uuls"
     DEV_INPUT_DISPLAY_AI_KNOWLEDGE = "uuld"
 
-    
+    TIME_BUFFER = 2
 
     # Initialization
     def __init__(self, end = False):
@@ -439,7 +441,11 @@ class Cluedo:
             if not player.can_refute():
                 continue
             
-            input(f"\nPress enter to have {player.get_colored_name()} check for refutation...")
+            if isinstance(player, AIPlayer):
+                print(f"\n{player.get_colored_name()} is checking for refutation...")
+                time.sleep(self.TIME_BUFFER)  
+            else:
+                input(f"\nPress enter to have {player.get_colored_name()} check for refutation...")
             # Check which cards this player has that match the suggestion
             matching_cards = []
             for card in [suggestion['suspect'], suggestion['weapon'], suggestion['room']]:
@@ -459,8 +465,14 @@ class Cluedo:
                 
                 # Only the suggesting player sees the actual card
                 self.clear_screen()
-                input(f"\nPress enter to reveal the card to {suggesting_player.get_colored_name()}...")
-                print(f"\n{suggesting_player.get_colored_name()} privately sees: {card_to_show}")
+                if not isinstance(suggesting_player, AIPlayer):
+                    input(f"\nPress enter to reveal the card to {suggesting_player.get_colored_name()}...")
+                    print(f"\n{suggesting_player.get_colored_name()} privately sees: {card_to_show}")
+                else:
+                    print(f"\n{player.get_colored_name()} is revealing a card to {suggesting_player.get_colored_name()}...")
+                    time.sleep(self.TIME_BUFFER)
+                    print(f"\n{suggesting_player.get_colored_name()} saw the card.")
+                    time.sleep(self.TIME_BUFFER)
                 input("Press enter to continue...")
                 self.clear_screen()
                 shown_card = card_to_show
