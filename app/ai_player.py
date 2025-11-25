@@ -375,7 +375,7 @@ class AIPlayer(Player):
         if self.should_accuse(game):
             accusation = self.accuse(game)
             print(f"\n{self.get_colored_name()} is making an accusation: {accusation}")
-            return game.check_accusation(self, accusation)
+            return game.handle_accusation(self, accusation)
 
         return False
 
