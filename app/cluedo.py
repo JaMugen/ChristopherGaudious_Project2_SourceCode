@@ -5,19 +5,21 @@ try:
     from app.rules import Rules
     from app.exceptions import InvalidActionException, InvalidMoveException
     from app.board import Board
-    from app.player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer, AIPlayer
+    from app.player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
+    from app.ai_player import AIPlayer
     from app.config import Config
     from app.cluedo_actions import (
         PlayerActionFactory, DisplayBoardAction, MoveAction, EnterRoomAction,
         ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
         EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
         DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
-        SecretPassageAction, ShowCardsAction
+        SecretPassageAction, ShowCardsAction, DisplayAIKnowledgeAction
     )
 except ImportError:
     from rules import Rules
     from board import Board
-    from player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer, AIPlayer
+    from player import Player, ActivePlayer, InactivePlayer, EliminatedPlayer
+    from ai_player import AIPlayer
     from config import Config
     from exceptions import InvalidActionException, InvalidMoveException
     from cluedo_actions import (
@@ -25,7 +27,7 @@ except ImportError:
         ExitRoomAction, MakeSuggestionAction, ViewLogAction, EndTurnAction,
         EndGameAction, ClearScreenAction, DisplayPlayersCardsAction,
         DisplaySolutionAction, ShowAvailableActionsAction, AccuseAction,
-        SecretPassageAction, ShowCardsAction
+        SecretPassageAction, ShowCardsAction, DisplayAIKnowledgeAction
     )
 
 class Cluedo:
@@ -52,6 +54,7 @@ class Cluedo:
     DEV_INPUT_TEST_MOVEMENT = "uula"
     DEV_INPUT_DISPLAY_PLAYERS_CARDS = "uulc"
     DEV_INPUT_DISPLAY_SOLUTIONS_CARDS = "uuls"
+    DEV_INPUT_DISPLAY_AI_KNOWLEDGE = "uuld"
 
     
 
@@ -96,6 +99,7 @@ class Cluedo:
         self.action_factory.register_action(self.ACTION_ACCUSE, AccuseAction)
         self.action_factory.register_action(self.ACTION_SECRET_PASSAGE, SecretPassageAction)
         self.action_factory.register_action(self.ACTION_SHOW_CARDS, ShowCardsAction)
+        self.action_factory.register_action(self.DEV_INPUT_DISPLAY_AI_KNOWLEDGE, DisplayAIKnowledgeAction)
 
     def distribute_cards(self):
         '''Distributes the remaining cards equally among all players.'''
@@ -109,6 +113,11 @@ class Cluedo:
             card_index += 1
         
         print(f"\nCards have been distributed to the {num_players} players.")
+        
+        # Initialize beliefs for AI players after cards are distributed
+        for player in self.players:
+            if isinstance(player, AIPlayer):
+                player.initialize_beliefs(self)
 
     def start(self):
         '''Starts the main game loop.'''
@@ -124,9 +133,12 @@ class Cluedo:
                 self.next_turn()
                 continue
             
-            # Check if player is AI and call appropriate turn method
+            # If player is an AI, call its `play_turn` so AIPlayer.play_turn
+            # implementation is used. For human players, call the normal
+            # `Cluedo.play_turn` handler.
             if isinstance(player, AIPlayer):
-                self.end = self.ai_turn(player)
+                # AIPlayer.play_turn(game) executes the AI's autonomous turn
+                self.end = player.play_turn(self)
             else:
                 self.end = self.play_turn(player)
             self.next_turn()
@@ -152,7 +164,21 @@ class Cluedo:
         start_positions = self.config.get_player_start_positions()
         
         print("\n=== PLAYER SETUP ===")
-        for suspect in suspects:
+        # The last suspect will be the AI player
+        for i, suspect in enumerate(suspects):
+            # Skip prompt for last suspect - will be AI player
+            if i == len(suspects) - 1:
+                ai = AIPlayer(
+                    name=f"{suspect}",
+                    color=player_colors[suspect],
+                    symbol=player_symbols[suspect],
+                    start_position="Ballroom",
+                    game=self
+                )
+                self.players.append(ai)
+                print(f"{suspect} is set as AI PLAYER.")
+                break
+            
             # Prompt whether each player is active
             while True:
                 response = input(f"Is {suspect} active? (y/n): ").strip().lower()
@@ -179,14 +205,17 @@ class Cluedo:
                 else:
                     print("Please enter 'y' or 'n'.")
         
-        # Add AI player for testing
-        ai = AIPlayer("Mr. Green (AI)", player_colors["Mr. Green"], player_symbols["Mr. Green"], "Lounge")
-        self.players.append(ai)
-        print("Mr. Green (AI) has been added as a player.")
-        
         print(f"\nCreated {len(self.players)} players for the game.")
         print("=" * 40)
-    
+    def display_ai_knowledge(self):
+        '''Displays the knowledge of all AI players (for dev/testing).'''
+        print("\n=== AI PLAYERS' KNOWLEDGE ===")
+        for player in self.players:
+            if isinstance(player, AIPlayer):
+                print(f"\nKnowledge for {player.get_colored_name()}:")
+                player.display_knowledge()
+        print("================================\n")
+
     def get_players(self):
         '''Returns the list of players.'''
         return self.players
@@ -411,7 +440,7 @@ class Cluedo:
         # Get suggesting player's index
         suggester_index = self.players.index(suggesting_player)
         
-        refuting_player = None
+        refuting_players = []
         shown_card = None
         
         # Check players clockwise starting from the next player
@@ -419,7 +448,7 @@ class Cluedo:
         for i in range(1, len(self.players)):
             player_index = (suggester_index + i) % len(self.players)
             player = self.players[player_index]
-            
+            refuting_players.append(player)
             # Skip players who cannot refute
             if not player.can_refute():
                 continue
@@ -447,17 +476,34 @@ class Cluedo:
                 input(f"\nPress enter to reveal the card to {suggesting_player.get_colored_name()}...")
                 print(f"\n{suggesting_player.get_colored_name()} privately sees: {card_to_show}")
                 input("Press enter to continue...")
-                input("Press Enter to continue...")
                 self.clear_screen()
-                refuting_player = player
                 shown_card = card_to_show
                 # Stop after first refutation
                 break
         
         # Return refutation result
-        if refuting_player:
-            return (refuting_player, shown_card)
+        if refuting_players:
+            return (refuting_players, shown_card)
         return (None, None)
+    
+    def notify_ai_observers(self, suggester: Player, suggestion: dict, refuters, shown_card: str = None) -> None:
+        '''Notifies all AI players (except the suggester) about a suggestion and its refutation.
+        
+        Args:
+            suggester: Player who made the suggestion
+            suggestion: Dict with 'suspect', 'weapon', 'room' keys
+            refuters: List of players who were asked to refute, or None
+            shown_card: The card that was shown (only visible to suggester)
+        '''
+        for player in self.players:
+            # Skip non-AI players and the suggester (they already know)
+            if not isinstance(player, AIPlayer) or player is suggester:
+                continue
+            
+            # AI observers see the suggestion but not the actual card shown
+            # They only know who refuted and who passed
+            player.observe_suggestion(suggester, suggestion)
+            player.observe_refutation(suggester, suggestion, refuters, shown_card=None)
     
     def log_suggestion(self, suggesting_player: Player, suggestion: dict, refuting_player: Player, shown_card: str) -> None:
         '''Logs a suggestion and its refutation to the game log.
