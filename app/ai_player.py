@@ -289,10 +289,12 @@ class AIPlayer(Player):
                     
             elif action.startswith('exit '):
                 # Parse room name and exit position from action
+                # Format: 'exit <room_name> <row> <col>'
+                # Room name may contain spaces, so last two tokens are always row/col
                 parts = action.split()
-                room_name = parts[1]
-                exit_row = int(parts[2])
-                exit_col = int(parts[3])
+                exit_row = int(parts[-2])
+                exit_col = int(parts[-1])
+                room_name = ' '.join(parts[1:-2])
                 exit_pos = (exit_row, exit_col)
                 
                 # Exit to the specified position
@@ -606,7 +608,7 @@ class AIPlayer(Player):
         else:
             print("  - None")
 
-        print("\nPrevious path taken:")
+        print("\nPrevious path chosen:")
         if self.previous_path:
             print("  - ", end="")
             for i, action in enumerate(self.previous_path):
