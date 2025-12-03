@@ -64,6 +64,12 @@ class Cluedo:
             self.remove_card_from_deck(card, self.cards)
             self.add_card_to_deck(card, self.removed_cards)
         self.create_players()
+
+        # Record initial active player count and AI player count
+        # Active players are those who can take turns (ActivePlayer and AIPlayer)
+        self.initial_active_count = sum(1 for p in self.players if p.can_take_turn())
+        self.ai_player_count = sum(1 for p in self.players if isinstance(p, AIPlayer))
+
         self.distribute_cards()
         self.setup_action_factory()
     
@@ -239,7 +245,29 @@ class Cluedo:
         
         # Replace in players list
         self.players[player_index] = eliminated
-        
+
+        # After replacing, check end-game condition: if all but one of the
+        # initially active players have been eliminated, end the game and
+        # declare the remaining active player the winner.
+        eliminated_count = sum(1 for p in self.players if p.is_eliminated_player())
+        initial_active = getattr(self, "initial_active_count", sum(1 for p in self.players if p.can_take_turn()))
+
+        # When eliminated_count >= initial_active - 1, only one active player remains
+        if initial_active > 0 and eliminated_count >= (initial_active - 1):
+            remaining = []
+            for p in self.players:
+                if p.can_take_turn() and not p.is_eliminated_player():
+                    remaining.append(p)
+            winner = remaining[0] if remaining else None
+            if winner:
+                print(f"\nAll other players have been eliminated. {winner.get_colored_name()} wins the game!")
+                self.display_solution(self.get_solution())
+                self.end = True
+            else:
+                # Edge case: no clear remaining player
+                print("\nAll active players eliminated. Ending game.")
+                self.end = True
+
         return eliminated
 
     # Solution 
@@ -470,8 +498,9 @@ class Cluedo:
                     print(f"\n{suggesting_player.get_colored_name()} privately sees: {card_to_show}")
                 else:
                     print(f"\n{player.get_colored_name()} is revealing a card to {suggesting_player.get_colored_name()}...")
+                    input("Press enter to continue...")
                     time.sleep(self.TIME_BUFFER)
-                    print(f"\n{suggesting_player.get_colored_name()} saw the card.")
+                    print(f"\n{suggesting_player.get_colored_name()} privately sees: {card_to_show}")
                     time.sleep(self.TIME_BUFFER)
                 input("Press enter to continue...")
                 self.clear_screen()
@@ -564,12 +593,15 @@ class Cluedo:
             input("Press Enter to continue...")
             
             # Replace player with EliminatedPlayer instance
+            # This may set self.end = True if only one player remains
             eliminated_player = self.replace_player_with_eliminated(player)
             
             # Move eliminated player to Ballroom
             eliminated_player.enter_room("Ballroom")
             self.board.place_player_in_room(eliminated_player, "Ballroom")
-            return (False, 0)  # Don't end game, but player is eliminated
+            
+            # Return whether the game should end (set by replace_player_with_eliminated)
+            return (self.end, 0)
 
     def print_available_actions(self) -> None:
         '''Prints the available actions for the player using descriptions from action classes.'''

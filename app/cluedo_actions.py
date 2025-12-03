@@ -228,9 +228,9 @@ class MakeSuggestionAction(PlayerAction):
         game.notify_ai_observers(player, suggestion, refuting_players, shown_card)
         
         # Log the suggestion and refutation
-        game.log_suggestion(player, suggestion, refuting_players[-1] , shown_card)
+        game.log_suggestion(player, suggestion, refuting_players[-1] if refuting_players else None, shown_card)
         
-        if refuting_players:
+        if refuting_players and shown_card:
             print(f"\n{refuting_players[-1].get_colored_name()} showed a card to {player.get_colored_name()}.")
         else:
             print("\nNo one could refute the suggestion!")
