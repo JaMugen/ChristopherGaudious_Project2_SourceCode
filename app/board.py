@@ -172,6 +172,16 @@ class Board:
         
     def get_room_layouts(self):
         '''Returns 2D layouts for each room with halls (.), walls (#), doors (d), room spaces (R).'''
+        Billiard_Room_Symbol = self.get_room_symbol("Billiard Room")
+        Hall = self.get_room_symbol("Hall")
+        Kitchen = self.get_room_symbol("Kitchen")
+        Ballroom = self.get_room_symbol("Ballroom")
+        Conservatory = self.get_room_symbol("Conservatory")
+        Dining_Room = self.get_room_symbol("Dining Room")
+        Lounge = self.get_room_symbol("Lounge")
+        Study = self.get_room_symbol("Study")
+        Library = self.get_room_symbol("Library")
+
         return {
             "Kitchen": {
                 "position": (0, 0),  # Top-left corner position on board
@@ -180,9 +190,9 @@ class Board:
                 "exit_offsets": [(5, 4)],  # Where player ends up when exiting through each door
                 "layout": [
                     ['#', '#', '#', '#', '#', '#'],
-                    ['#', 'K', 'K', 'K', 'K', '#'],
-                    ['#', 'K', 'K', 'K', 'K', '#'],
-                    ['#', 'K', 'K', 'K', 'K', '#'],
+                    ['#', Kitchen, Kitchen, Kitchen, Kitchen, '#'],
+                    ['#', Kitchen, Kitchen, Kitchen, Kitchen, '#'],
+                    ['#', Kitchen, Kitchen, Kitchen, Kitchen, '#'],
                     ['#', '#', '#', '#', 'd', '#']  
                 ]
             },
@@ -193,11 +203,11 @@ class Board:
                 "exit_offsets": [(5, -1), (7, 1), (7, 4), (5, 7)], 
                 "layout": [
                     ['.', '.', '#', '#', '#', '.', '.'],
-                    ['#', '#', 'B', 'B', 'B', '#', '#'],
-                    ['#', 'B', 'B', 'B', 'B', 'B', '#'],
-                    ['#', 'B', 'B', 'B', 'B', 'B', '#'],
-                    ['#', 'B', 'B', 'B', 'B', 'B', '#'],
-                    ['d', 'B', 'B', 'B', 'B', 'B', 'd'],
+                    ['#', '#', Ballroom, Ballroom, Ballroom, '#', '#'],
+                    ['#', Ballroom, Ballroom, Ballroom, Ballroom, Ballroom, '#'],
+                    ['#', Ballroom, Ballroom, Ballroom, Ballroom, Ballroom, '#'],
+                    ['#', Ballroom, Ballroom, Ballroom, Ballroom, Ballroom, '#'],
+                    ['d', Ballroom, Ballroom, Ballroom, Ballroom, Ballroom, 'd'],
                     ['#', 'd', '#', '#', 'd', '#', '#']
                 ]
             },
@@ -208,8 +218,8 @@ class Board:
                 "exit_offsets": [(2, -1)],
                 "layout": [
                     ['#', '#', '#', '#', '#', '#'], 
-                    ['#', 'C', 'C', 'C', 'C', '#'],
-                    ['d', 'C', 'C', 'C', 'C', '#'],
+                    ['#', Conservatory, Conservatory, Conservatory, Conservatory, '#'],
+                    ['d', Conservatory, Conservatory, Conservatory, Conservatory, '#'],
                     ['.', '#', '#', '#', '#', '.'],
                 ]
             },
@@ -220,11 +230,11 @@ class Board:
                 "exit_offsets": [(4, 8), (7, 4)],  
                 "layout": [
                     ['#', '#', '#', '#', '#', '.', '.', '.'],
-                    ['#','D', 'D', 'D', 'D', '#', '#', '#'],
-                    ['#', 'D', 'D', 'D', 'D', 'D', 'D', '#'],
-                    ['#', 'D', 'D', 'D', 'D', 'D', 'D', '#'],
-                    ['#', 'D', 'D', 'D', 'D', 'D', 'D', 'd'],
-                    ['#', 'D', 'D', 'D', 'D', 'D', 'D', '#'],
+                    ['#',Dining_Room, Dining_Room, Dining_Room, Dining_Room, '#', '#', '#'],
+                    ['#', Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, '#'],
+                    ['#', Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, '#'],
+                    ['#', Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, 'd'],
+                    ['#', Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, Dining_Room, '#'],
                     ['#', '#', '#', '#', 'd', '#', '#', '#']
                 ]
             },
@@ -235,23 +245,23 @@ class Board:
                 "exit_offsets": [(0, 7)],  # Right door
                 "layout": [
                     ['#','#','#', '#', '#', '#', 'd'],
-                    ['#', 'O', 'O', 'O', 'O', 'O', '#'],
-                    ['#','O', 'O', 'O', 'O', 'O', '#'],
-                    ['#', 'O','O', 'O', 'O', 'O', '#'],
+                    ['#', Lounge, Lounge, Lounge, Lounge, Lounge, '#'],
+                    ['#', Lounge, Lounge, Lounge, Lounge, Lounge, '#'],
+                    ['#', Lounge, Lounge, Lounge, Lounge, Lounge, '#'],
                     ['#','#', '#', '#', '#', '#', '#']
                 ]
             },
             "Hall": {
                 "position": (16, 9),
                 "size": (6, 6),
-                "door_locations": [(0, 2), (0, 3), (5, 5)],
-                "exit_offsets": [(-1, 2), (-1, 3), (5, 6)],  
+                "door_locations": [(0, 2), (0, 3), (3, 5)],
+                "exit_offsets": [(-1, 2), (-1, 3), (3, 6)],  
                 "layout": [
                     ['#','#','d', 'd','#','#'],
-                    ['#', 'H', 'H', 'H','H', '#'],
-                    ['#', 'H', 'H', 'H','H', '#'],
-                    ['#', 'H', 'H', 'H','H', 'd'],
-                    ['#', 'H', 'H', 'H','H', '#'],
+                    ['#', Hall, Hall, Hall, Hall, '#'],
+                    ['#', Hall, Hall, Hall, Hall, '#'],
+                    ['#', Hall, Hall, Hall, Hall, 'd'],
+                    ['#', Hall, Hall, Hall, Hall, '#'],
                     ['#', '#', '#', '#','#', '#']
 
                 ]
@@ -263,7 +273,7 @@ class Board:
                 "exit_offsets": [(-1, 1)],  # Top door
                 "layout": [
                     ['#', 'd', '#', '#', '#', '#'],  
-                    ['#', 'S', 'S', 'S', 'S', '#'],
+                    ['#', Study, Study, Study, Study, '#'],
                     ['#', '#', '#', '#', '#', '#']
                 ]
             },
@@ -274,9 +284,9 @@ class Board:
                 "exit_offsets": [(2, -1), (-1, 4)], 
                 "layout": [
                     ['.', '#', '#', '#', 'd', '#'],
-                    ['#', 'L', 'L', 'L', 'L', '#'],
-                    ['d', 'L', 'L', 'L', 'L', '#'],
-                    ['#', 'L', 'L', 'L', 'L', '#'],
+                    ['#', Library, Library, Library, Library, '#'],
+                    ['d', Library, Library, Library, Library, '#'],
+                    ['#', Library, Library, Library, Library, '#'],
                     ['.', '#', '#', '#', '#', '#']
                 ]
             },
@@ -287,9 +297,9 @@ class Board:
                 "exit_offsets": [(1, -1), (-1, 3)],  
                 "layout": [
                     ['#', '#', '#', 'd', '#'],
-                    ['d', 'R', 'R', 'R', '#'],
-                    ['#', 'R', 'R', 'R', '#'],
-                    ['#', 'R', 'R', 'R', '#'],
+                    ['d', Billiard_Room_Symbol, Billiard_Room_Symbol, Billiard_Room_Symbol, '#'],
+                    ['#', Billiard_Room_Symbol, Billiard_Room_Symbol, Billiard_Room_Symbol, '#'],
+                    ['#', Billiard_Room_Symbol, Billiard_Room_Symbol, Billiard_Room_Symbol, '#'],
                     ['#', '#', '#', '#', '#']
                 ]
             }
