@@ -513,6 +513,17 @@ class AIPlayer(Player):
             suggestion = self.suggest(game)
             self.observe_suggestion(self, suggestion)
             self.player_print(f"{self.get_colored_name()} suggests: {suggestion}")
+            
+            # Move the suggested suspect player to the room
+            suspected_player = game.get_player_by_name(suggestion['suspect'])
+            if suspected_player:
+                suspected_player.enter_room(suggestion['room'])
+                game.board.place_player_in_room(suspected_player, suggestion['room'])
+                self.player_print(f"{suspected_player.get_colored_name()} has been moved to {suggestion['room']}.")
+            
+            # Move the suggested weapon to the room
+            game.board.place_weapon_in_room(suggestion['weapon'], suggestion['room'])
+            
             # Run refutation using game logic
             refuting_players, shown_card = game.refute_suggestion(self, suggestion)
             self.observe_refutation(self, suggestion, refuting_players, shown_card)
